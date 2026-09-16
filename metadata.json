@@ -1,0 +1,6 @@
+{
+  "name": "Creaciones Golondrina",
+  "description": "E-commerce de ropa típica yucateca (guayaberas, vestidos, blusas) fabricada en Tekit, Yucatán.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
