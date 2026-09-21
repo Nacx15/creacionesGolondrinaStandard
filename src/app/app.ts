@@ -17,7 +17,7 @@ export class App {
   private readonly ecommerceStatus = inject(EcommerceStatusService);
 
   constructor() {
-    this.ecommerceStatus.startMonitoring();
+    this.ecommerceStatus.startRuntimeRefresh();
 
     effect(() => {
       const status = this.ecommerceStatus.status();

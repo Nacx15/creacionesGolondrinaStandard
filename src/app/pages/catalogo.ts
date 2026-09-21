@@ -102,10 +102,10 @@ import {environment} from '../../environments/environment';
                 </button>
               </span>
             }
-            @if (store.priceRange() < 2000) {
+            @if (store.isPriceFilterActive()) {
               <span class="inline-flex items-center gap-1 bg-white border border-gray-200 text-gray-800 text-xs px-2.5 py-1 rounded-lg">
                 Hasta {{ '$' + store.priceRange() }}
-                <button type="button" (click)="store.priceRange.set(2000)" class="text-gray-400 hover:text-red-500">
+                <button type="button" (click)="store.resetPriceFilter()" class="text-gray-400 hover:text-red-500">
                   <mat-icon class="text-sm h-3.5 w-3.5">close</mat-icon>
                 </button>
               </span>
@@ -146,27 +146,30 @@ import {environment} from '../../environments/environment';
                 </div>
               </div>
 
-              <!-- Category Filter (Damas, Caballeros, Niños) -->
-              <div class="mb-6">
-                <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Para Quién</span>
-                <div class="flex flex-col gap-2">
-                  @for (cat of store.availableCategories(); track cat) {
-                    <button 
-                      type="button"
-                      (click)="store.setCategory(cat)"
-                      [class]="store.selectedCategory() === cat ? 'bg-brand-pink text-white font-medium border-brand-pink shadow-xs' : 'bg-brand-cream text-gray-700 hover:bg-gray-100 border-transparent'"
-                      class="w-full text-left px-4 py-2 rounded-xl text-xs border transition-all flex items-center justify-between cursor-pointer"
-                    >
-                      <span>{{ cat }}</span>
-                      @if (store.selectedCategory() === cat) {
-                        <mat-icon class="text-xs leading-none">check</mat-icon>
-                      }
-                    </button>
-                  }
+              <!-- Categories are derived only from departments represented by products in the current response. -->
+              @if (store.availableCategories().length > 1) {
+                <div class="mb-6">
+                  <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Para Quién</span>
+                  <div class="flex flex-col gap-2">
+                    @for (cat of store.availableCategories(); track cat) {
+                      <button 
+                        type="button"
+                        (click)="store.setCategory(cat)"
+                        [class]="store.selectedCategory() === cat ? 'bg-brand-pink text-white font-medium border-brand-pink shadow-xs' : 'bg-brand-cream text-gray-700 hover:bg-gray-100 border-transparent'"
+                        class="w-full text-left px-4 py-2 rounded-xl text-xs border transition-all flex items-center justify-between cursor-pointer"
+                      >
+                        <span>{{ cat }}</span>
+                        @if (store.selectedCategory() === cat) {
+                          <mat-icon class="text-xs leading-none">check</mat-icon>
+                        }
+                      </button>
+                    }
+                  </div>
                 </div>
-              </div>
+              }
 
               <!-- Sizes Filter -->
+              @if (store.availableSizes().length > 1) {
               <div class="mb-6">
                 <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Tallas</span>
                 <div class="grid grid-cols-3 gap-2">
@@ -182,8 +185,10 @@ import {environment} from '../../environments/environment';
                   }
                 </div>
               </div>
+              }
 
               <!-- Colors Filter -->
+              @if (store.availableColors().length > 1) {
               <div class="mb-6">
                 <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Colores</span>
                 <div class="flex flex-wrap gap-2">
@@ -199,6 +204,7 @@ import {environment} from '../../environments/environment';
                   }
                 </div>
               </div>
+              }
 
               <!-- Mangas Filter -->
               @if (store.availableMangas().length > 1) {
@@ -219,27 +225,29 @@ import {environment} from '../../environments/environment';
                 </div>
               }
 
-              <!-- Price Slider -->
-              <div>
-                <div class="flex justify-between items-center mb-2">
-                  <label for="price-range-desktop" class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Precio Máximo</label>
-                  <span class="text-xs font-bold text-brand-pink">{{ '$' + store.priceRange() }} MXN</span>
+              <!-- Price range is calculated from ecommerce prices present in the current product response. -->
+              @if (store.hasDynamicPriceRange()) {
+                <div>
+                  <div class="flex justify-between items-center mb-2">
+                    <label for="price-range-desktop" class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Precio Máximo</label>
+                    <span class="text-xs font-bold text-brand-pink">{{ '$' + store.priceRange() }} MXN</span>
+                  </div>
+                  <input 
+                    id="price-range-desktop"
+                    type="range"
+                    [min]="store.minAvailablePrice()"
+                    [max]="store.maxAvailablePrice()"
+                    [step]="store.priceStep()"
+                    [value]="store.priceRange()"
+                    (input)="onPriceChange($event)"
+                    class="w-full accent-brand-pink cursor-pointer bg-gray-200 rounded-lg h-1"
+                  />
+                  <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+                    <span>{{ '$' + store.minAvailablePrice() }}</span>
+                    <span>{{ '$' + store.maxAvailablePrice() }}</span>
+                  </div>
                 </div>
-                <input 
-                  id="price-range-desktop"
-                  type="range" 
-                  min="500" 
-                  max="2000" 
-                  step="50"
-                  [value]="store.priceRange()"
-                  (input)="onPriceChange($event)"
-                  class="w-full accent-brand-pink cursor-pointer bg-gray-200 rounded-lg h-1"
-                />
-                <div class="flex justify-between text-[10px] text-gray-400 mt-1">
-                  <span>$500</span>
-                  <span>$2,000</span>
-                </div>
-              </div>
+              }
             </div>
           </div>
 
@@ -472,27 +480,30 @@ import {environment} from '../../environments/environment';
               </div>
             </div>
 
-            <!-- Category Filter (Damas, Caballeros, Niños) -->
-            <div>
-              <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Para Quién</span>
-              <div class="grid grid-cols-2 gap-2">
-                @for (cat of store.availableCategories(); track cat) {
-                  <button 
-                    type="button"
-                    (click)="store.setCategory(cat)"
-                    [class]="store.selectedCategory() === cat ? 'bg-brand-pink text-white font-medium border-brand-pink shadow-xs' : 'bg-brand-cream text-gray-700 hover:bg-gray-100 border-transparent'"
-                    class="px-3 py-2 rounded-xl text-xs border transition-all flex items-center justify-between cursor-pointer"
-                  >
-                    <span>{{ cat }}</span>
-                    @if (store.selectedCategory() === cat) {
-                      <mat-icon class="text-xs leading-none">check</mat-icon>
-                    }
-                  </button>
-                }
+            <!-- Category Filter -->
+            @if (store.availableCategories().length > 1) {
+              <div>
+                <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Para Quién</span>
+                <div class="grid grid-cols-2 gap-2">
+                  @for (cat of store.availableCategories(); track cat) {
+                    <button 
+                      type="button"
+                      (click)="store.setCategory(cat)"
+                      [class]="store.selectedCategory() === cat ? 'bg-brand-pink text-white font-medium border-brand-pink shadow-xs' : 'bg-brand-cream text-gray-700 hover:bg-gray-100 border-transparent'"
+                      class="px-3 py-2 rounded-xl text-xs border transition-all flex items-center justify-between cursor-pointer"
+                    >
+                      <span>{{ cat }}</span>
+                      @if (store.selectedCategory() === cat) {
+                        <mat-icon class="text-xs leading-none">check</mat-icon>
+                      }
+                    </button>
+                  }
+                </div>
               </div>
-            </div>
+            }
 
             <!-- Sizes Filter -->
+            @if (store.availableSizes().length > 1) {
             <div>
               <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Tallas</span>
               <div class="grid grid-cols-4 gap-2">
@@ -508,8 +519,10 @@ import {environment} from '../../environments/environment';
                 }
               </div>
             </div>
+            }
 
             <!-- Colors Filter -->
+            @if (store.availableColors().length > 1) {
             <div>
               <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Colores</span>
               <div class="flex flex-wrap gap-2">
@@ -525,6 +538,7 @@ import {environment} from '../../environments/environment';
                 }
               </div>
             </div>
+            }
 
             <!-- Mangas Filter -->
             @if (store.availableMangas().length > 1) {
@@ -546,26 +560,28 @@ import {environment} from '../../environments/environment';
             }
 
             <!-- Price Slider -->
-            <div>
-              <div class="flex justify-between items-center mb-2">
-                <label for="price-range-mobile" class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Precio Máximo</label>
-                <span class="text-xs font-bold text-brand-pink">{{ '$' + store.priceRange() }} MXN</span>
+            @if (store.hasDynamicPriceRange()) {
+              <div>
+                <div class="flex justify-between items-center mb-2">
+                  <label for="price-range-mobile" class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Precio Máximo</label>
+                  <span class="text-xs font-bold text-brand-pink">{{ '$' + store.priceRange() }} MXN</span>
+                </div>
+                <input 
+                  id="price-range-mobile"
+                  type="range"
+                  [min]="store.minAvailablePrice()"
+                  [max]="store.maxAvailablePrice()"
+                  [step]="store.priceStep()"
+                  [value]="store.priceRange()"
+                  (input)="onPriceChange($event)"
+                  class="w-full accent-brand-pink cursor-pointer bg-gray-200 rounded-lg h-1"
+                />
+                <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+                  <span>{{ '$' + store.minAvailablePrice() }}</span>
+                  <span>{{ '$' + store.maxAvailablePrice() }}</span>
+                </div>
               </div>
-              <input 
-                id="price-range-mobile"
-                type="range" 
-                min="500" 
-                max="2000" 
-                step="50"
-                [value]="store.priceRange()"
-                (input)="onPriceChange($event)"
-                class="w-full accent-brand-pink cursor-pointer bg-gray-200 rounded-lg h-1"
-              />
-              <div class="flex justify-between text-[10px] text-gray-400 mt-1">
-                <span>$500</span>
-                <span>$2,000</span>
-              </div>
-            </div>
+            }
 
             <!-- Action Buttons right after filter options -->
             <div class="pt-4 border-t border-gray-100 flex items-center gap-3">
@@ -627,7 +643,7 @@ export class Catalogo implements OnInit {
     if (this.store.selectedSize() !== 'Todos') count++;
     if (this.store.selectedColor() !== 'Todos') count++;
     if (this.store.selectedManga() !== 'Todos') count++;
-    if (this.store.priceRange() < 2000) count++;
+    if (this.store.isPriceFilterActive()) count++;
     return count;
   });
 
@@ -640,6 +656,10 @@ export class Catalogo implements OnInit {
   }
 
   ngOnInit() {
+    // Commercial navigation checkpoint: categories, filters, prices and stock come
+    // from a fresh /productos/ecommerce snapshot whenever Catalog opens.
+    void this.store.loadProducts(true, true);
+
     this.seo.setMetaTags(
       'Catálogo de Ropa Tradicional',
       'Explora el catálogo de Creaciones Golondrina: guayaberas de lino para caballeros, hermosos vestidos tradicionales para damas y blusas bordadas infantiles. Confeccionadas con calidad premium en Tekit, Yucatán.',
@@ -654,7 +674,9 @@ export class Catalogo implements OnInit {
 
   onPriceChange(event: Event) {
     const value = +(event.target as HTMLInputElement).value;
-    this.store.priceRange.set(value);
+    const min = this.store.minAvailablePrice();
+    const max = this.store.maxAvailablePrice();
+    this.store.priceRange.set(Math.min(max, Math.max(min, value)));
   }
 
   clearFilters() {

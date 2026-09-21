@@ -135,85 +135,46 @@ import {MatIconModule} from '@angular/material/icon';
     </section>
 
     <!-- Categories / Secciones Destacadas -->
-    <section class="py-16 bg-brand-cream">
-      <div class="container mx-auto px-4">
-        <div class="text-center mb-12">
-          <span class="text-brand-pink font-semibold uppercase tracking-widest text-xs">Colecciones</span>
-          <h2 class="font-serif-brand text-3xl md:text-4xl font-bold text-gray-900 mt-2">Nuestras Categorías de Vestir</h2>
-          <div class="w-16 h-1 bg-brand-yellow mx-auto mt-3 rounded-full"></div>
-        </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
-          <!-- Caballeros Category -->
-          <div class="group relative overflow-hidden rounded-2xl shadow-sm bg-white border border-gray-100 flex flex-col h-96 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-            <div class="h-2/3 overflow-hidden relative">
-              <img src="https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=600&q=80" alt="Guayaberas para Caballeros" class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" referrerpolicy="no-referrer" />
-              <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-            </div>
-            <div class="p-6 flex-1 flex flex-col justify-between bg-white relative z-10">
-              <div>
-                <h3 class="font-serif-brand text-xl font-bold text-gray-900">Caballeros</h3>
-                <p class="text-sm text-gray-500 mt-1">Guayaberas presidenciales, manga corta, de lino premium e hilo fino.</p>
-              </div>
-              <button (click)="goToCategory('Caballeros')" class="text-brand-pink font-semibold text-sm hover:text-brand-dark transition-colors flex items-center gap-1 self-start">
-                Explorar colección <mat-icon class="text-sm">arrow_forward</mat-icon>
-              </button>
-            </div>
+    @if (homeCategories().length > 0) {
+      <section class="py-16 bg-brand-cream">
+        <div class="container mx-auto px-4">
+          <div class="text-center mb-12">
+            <span class="text-brand-pink font-semibold uppercase tracking-widest text-xs">Colecciones</span>
+            <h2 class="font-serif-brand text-3xl md:text-4xl font-bold text-gray-900 mt-2">Nuestras Categorías de Vestir</h2>
+            <div class="w-16 h-1 bg-brand-yellow mx-auto mt-3 rounded-full"></div>
           </div>
 
-          <!-- Damas Category -->
-          <div class="group relative overflow-hidden rounded-2xl shadow-sm bg-white border border-gray-100 flex flex-col h-96 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-            <div class="h-2/3 overflow-hidden relative">
-              <img src="https://images.unsplash.com/photo-1581044777550-4cfa60707c03?auto=format&fit=crop&w=600&q=80" alt="Ropa típica para Damas" class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" referrerpolicy="no-referrer" />
-              <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-            </div>
-            <div class="p-6 flex-1 flex flex-col justify-between bg-white relative z-10">
-              <div>
-                <h3 class="font-serif-brand text-xl font-bold text-gray-900">Damas</h3>
-                <p class="text-sm text-gray-500 mt-1">Vestidos tradicionales "Huipil", blusas bordadas campesinas y de lino.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            @for (category of homeCategories(); track category.key) {
+              <div class="group relative overflow-hidden rounded-2xl shadow-sm bg-white border border-gray-100 flex flex-col h-96 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                <div class="h-2/3 overflow-hidden relative">
+                  <img
+                    [src]="category.image"
+                    [alt]="category.alt"
+                    class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
+                    referrerpolicy="no-referrer"
+                  />
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                </div>
+                <div class="p-6 flex-1 flex flex-col justify-between bg-white relative z-10">
+                  <div>
+                    <h3 class="font-serif-brand text-xl font-bold text-gray-900">{{ category.name }}</h3>
+                    <p class="text-sm text-gray-500 mt-1">{{ category.description }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    (click)="goToCategory(category.name)"
+                    class="text-brand-pink font-semibold text-sm hover:text-brand-dark transition-colors flex items-center gap-1 self-start"
+                  >
+                    Explorar colección <mat-icon class="text-sm">arrow_forward</mat-icon>
+                  </button>
+                </div>
               </div>
-              <button (click)="goToCategory('Damas')" class="text-brand-pink font-semibold text-sm hover:text-brand-dark transition-colors flex items-center gap-1 self-start">
-                Explorar colección <mat-icon class="text-sm">arrow_forward</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <!-- Niños Category -->
-          <div class="group relative overflow-hidden rounded-2xl shadow-sm bg-white border border-gray-100 flex flex-col h-96 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-            <div class="h-2/3 overflow-hidden relative">
-              <img src="https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=600&q=80" alt="Guayaberas y vestidos para niños" class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" referrerpolicy="no-referrer" />
-              <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-            </div>
-            <div class="p-6 flex-1 flex flex-col justify-between bg-white relative z-10">
-              <div>
-                <h3 class="font-serif-brand text-xl font-bold text-gray-900">Niños</h3>
-                <p class="text-sm text-gray-500 mt-1">Guayaberas infantiles suaves de algodón.</p>
-              </div>
-              <button (click)="goToCategory('Niños')" class="text-brand-pink font-semibold text-sm hover:text-brand-dark transition-colors flex items-center gap-1 self-start">
-                Explorar colección <mat-icon class="text-sm">arrow_forward</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <!-- Niñas Category -->
-          <div class="group relative overflow-hidden rounded-2xl shadow-sm bg-white border border-gray-100 flex flex-col h-96 transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-            <div class="h-2/3 overflow-hidden relative">
-              <img src="https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=600&q=80" alt="Guayaberas y vestidos para niños" class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" referrerpolicy="no-referrer" />
-              <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-            </div>
-            <div class="p-6 flex-1 flex flex-col justify-between bg-white relative z-10">
-              <div>
-                <h3 class="font-serif-brand text-xl font-bold text-gray-900">Niñas</h3>
-                <p class="text-sm text-gray-500 mt-1">Hermosos vestidos bordados.</p>
-              </div>
-              <button (click)="goToCategory('Niños')" class="text-brand-pink font-semibold text-sm hover:text-brand-dark transition-colors flex items-center gap-1 self-start">
-                Explorar colección <mat-icon class="text-sm">arrow_forward</mat-icon>
-              </button>
-            </div>
+            }
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    }
 
     <!-- Why Us / Ventajas de comprar con nosotros -->
     <section class="py-16 bg-white">
@@ -361,7 +322,45 @@ export class Inicio implements OnInit, OnDestroy {
     return this.store.products().find(p => p.isOffer) || this.store.products()[0];
   });
 
+  readonly homeCategories = computed(() => {
+    const departmentsById = new Map(
+      this.store.masterDepartamentos().map((department) => [
+        Number(department.id),
+        String(department.name || department.nombre || '').trim(),
+      ])
+    );
+    const categories = new Map<string, {
+      key: string;
+      name: string;
+      image: string;
+      alt: string;
+      description: string;
+    }>();
+
+    for (const product of this.store.products()) {
+      const departmentName = product.departmentName
+        || (product.department_id ? departmentsById.get(Number(product.department_id)) : '')
+        || product.category;
+      const name = String(departmentName || '').trim();
+      if (!name) continue;
+
+      const key = this.normalizeCategory(name);
+      if (categories.has(key)) continue;
+
+      const presentation = this.getCategoryPresentation(name, product.image);
+      categories.set(key, {key, name, ...presentation});
+    }
+
+    return Array.from(categories.values());
+  });
+
+
   ngOnInit() {
+    // Commercial navigation checkpoint: refresh the real catalog once when Home opens.
+    // The protected endpoint also lets the global interceptor surface 403/503 status
+    // changes without polling /ecommerce/status. Store deduplicates any in-flight request.
+    void this.store.loadProducts(true, true);
+
     // SEO optimization for index page
     this.seo.setMetaTags(
       'Inicio',
@@ -404,6 +403,46 @@ export class Inicio implements OnInit, OnDestroy {
     this.activeSlide.update(curr => (curr - 1 + 3) % 3);
   }
 
+  private normalizeCategory(value: string): string {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+  }
+
+  private getCategoryPresentation(name: string, productImage: string) {
+    const key = this.normalizeCategory(name);
+    const presentations: Record<string, {image: string; alt: string; description: string}> = {
+      caballeros: {
+        image: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=600&q=80',
+        alt: 'Guayaberas para Caballeros',
+        description: 'Guayaberas presidenciales, manga corta, de lino premium e hilo fino.',
+      },
+      damas: {
+        image: 'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?auto=format&fit=crop&w=600&q=80',
+        alt: 'Ropa típica para Damas',
+        description: 'Vestidos tradicionales "Huipil", blusas bordadas campesinas y de lino.',
+      },
+      ninos: {
+        image: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=600&q=80',
+        alt: 'Guayaberas y ropa típica para niños',
+        description: 'Guayaberas infantiles suaves de algodón.',
+      },
+      ninas: {
+        image: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=600&q=80',
+        alt: 'Vestidos y ropa típica para niñas',
+        description: 'Hermosos vestidos bordados.',
+      },
+    };
+
+    return presentations[key] ?? {
+      image: productImage,
+      alt: `Colección ${name} de Creaciones Golondrina`,
+      description: `Explora nuestra colección de ${name}.`,
+    };
+  }
+
   buyPromo() {
     const prod = this.promoProduct();
     if (!prod) return;
@@ -417,7 +456,7 @@ export class Inicio implements OnInit, OnDestroy {
   }
 
   goToCategory(category: string) {
-    this.store.selectedCategory.set(category);
+    this.store.setCategory(category);
     void this.router.navigate(['/catalogo']);
   }
 }

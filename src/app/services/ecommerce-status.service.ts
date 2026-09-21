@@ -1,5 +1,5 @@
 import {HttpClient, HttpErrorResponse} from '@angular/common/http';
-import {DestroyRef, Injectable, PLATFORM_ID, inject, isDevMode, signal} from '@angular/core';
+import {DestroyRef, Injectable, PLATFORM_ID, inject, signal} from '@angular/core';
 import {isPlatformBrowser} from '@angular/common';
 import {firstValueFrom} from 'rxjs';
 import {environment} from '../../environments/environment';
@@ -15,18 +15,25 @@ export class EcommerceStatusService {
 
   readonly status = signal<EcommerceRuntimeStatus>('checking');
   readonly message = signal<string | null>(null);
+
   private inFlight?: Promise<EcommerceRuntimeStatus>;
-  private monitorId?: number;
-  private monitoringStarted = false;
+  private lastValidatedAt = 0;
+  private runtimeRefreshStarted = false;
+  private lastResumeCheckAt = 0;
 
+  /**
+   * Returns the cached state while it is fresh. A new request is only performed when
+   * the cache expires, when there is no reliable state yet, or when the caller forces it.
+   * 403/503 responses from any GuayaFlow request still update this service immediately
+   * through the global error interceptor, so the status endpoint does not need polling.
+   */
   ensureStatus(force = false): Promise<EcommerceRuntimeStatus> {
-    if (!force && this.status() !== 'checking' && this.status() !== 'unavailable') {
-      return Promise.resolve(this.status());
-    }
-
-    // Reuse the current request even when a forced refresh is requested. This prevents
-    // duplicate /ecommerce/status calls when a route guard and the runtime monitor fire together.
     if (this.inFlight) return this.inFlight;
+
+    const current = this.status();
+    if (!force && this.isFresh(current)) {
+      return Promise.resolve(current);
+    }
 
     this.inFlight = this.fetchStatus().finally(() => {
       this.inFlight = undefined;
@@ -41,41 +48,57 @@ export class EcommerceStatusService {
   setFromHttpState(status: EcommerceRuntimeStatus, message?: string | null): void {
     this.status.set(status);
     this.message.set(message?.trim() || null);
+    this.lastValidatedAt = Date.now();
   }
 
   /**
-   * Keeps the storefront synchronized with GuayaFlow while the browser remains open.
-   * Guards still validate on navigation; this monitor covers status changes that happen
-   * while the visitor stays on the same route.
+   * Event-driven status refresh. There is intentionally no interval/polling here.
+   * While active, ordinary GuayaFlow calls are enough to surface 403/503 immediately.
+   * If the shop is blocked/unavailable, returning to the tab or reconnecting forces a
+   * status check so the storefront can recover without requiring a manual reload.
    */
-  startMonitoring(): void {
-    if (!this.browser || this.monitoringStarted) return;
-    this.monitoringStarted = true;
+  startRuntimeRefresh(): void {
+    if (!this.browser || this.runtimeRefreshStarted) return;
+    this.runtimeRefreshStarted = true;
 
-    const intervalMs = Math.max(5000, Number(environment.ecommerceStatusPollMs ?? 10000));
-    const refresh = () => {
-      void this.ensureStatus(true);
+    const refreshBlockedState = () => {
+      const now = Date.now();
+      if (now - this.lastResumeCheckAt < 1000) return;
+      this.lastResumeCheckAt = now;
+
+      const current = this.status();
+      if (current !== 'active') {
+        void this.ensureStatus(true);
+      }
     };
+
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') refresh();
+      if (document.visibilityState === 'visible') refreshBlockedState();
     };
 
-    this.monitorId = window.setInterval(refresh, intervalMs);
-    window.addEventListener('focus', refresh);
+    window.addEventListener('focus', refreshBlockedState);
+    window.addEventListener('online', refreshBlockedState);
     document.addEventListener('visibilitychange', refreshWhenVisible);
 
     this.destroyRef.onDestroy(() => {
-      if (this.monitorId !== undefined) window.clearInterval(this.monitorId);
-      window.removeEventListener('focus', refresh);
+      window.removeEventListener('focus', refreshBlockedState);
+      window.removeEventListener('online', refreshBlockedState);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
-      this.monitorId = undefined;
-      this.monitoringStarted = false;
+      this.runtimeRefreshStarted = false;
     });
+  }
 
-    if (isDevMode()) {
-      // No user data is logged; this is only useful while validating status propagation.
-      console.debug(`[GuayaFlow] ecommerce status monitor: ${intervalMs}ms`);
+  private isFresh(current: EcommerceRuntimeStatus): boolean {
+    if (this.lastValidatedAt <= 0 || current === 'checking') return false;
+
+    const age = Date.now() - this.lastValidatedAt;
+    if (current === 'unavailable') {
+      const retryMs = Math.max(5000, Number(environment.ecommerceStatusRetryMs ?? 30000));
+      return age < retryMs;
     }
+
+    const ttlMs = Math.max(30000, Number(environment.ecommerceStatusTtlMs ?? 300000));
+    return age < ttlMs;
   }
 
   private async fetchStatus(): Promise<EcommerceRuntimeStatus> {

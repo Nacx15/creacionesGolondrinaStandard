@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, PLATFORM_ID, computed, inject, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, OnInit, PLATFORM_ID, computed, inject, signal} from '@angular/core';
 import {CommonModule, isPlatformBrowser} from '@angular/common';
 import {HttpClient, HttpErrorResponse} from '@angular/common/http';
 import {Router, RouterLink} from '@angular/router';
@@ -156,7 +156,7 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
     @keyframes fadeIn { from {opacity:0; transform:translateY(8px)} to {opacity:1; transform:translateY(0)} }
   `,
 })
-export class Checkout {
+export class Checkout implements OnInit {
   readonly store = inject(Store);
   private readonly http = inject(HttpClient);
   private readonly seo = inject(Seo);
@@ -182,6 +182,13 @@ export class Checkout {
 
   constructor() {
     this.seo.setMetaTags('Finalizar Compra', 'Completa tus datos de envío y continúa a Mercado Pago de forma segura.', ['checkout Creaciones Golondrina', 'Mercado Pago']);
+  }
+
+  ngOnInit(): void {
+    // Checkout is a strong commercial checkpoint. It must obtain an inventory/price
+    // snapshot that starts at/after entering checkout, rather than reusing a request
+    // that may have begun on Cart/Detail immediately before navigation.
+    void this.store.refreshCatalogAndCart(true, true, true);
   }
 
   onPostalCodeInput(value: string) {
@@ -238,7 +245,9 @@ export class Checkout {
       const code = String(body?.code ?? body?.error?.code ?? '').toLowerCase();
 
       if (error.status === 409 && code === 'insufficient_stock') {
-        await this.store.refreshCatalogAndCart(false);
+        // A backend 409 is authoritative. Fetch a brand-new snapshot before showing
+        // the corrected availability to the customer.
+        await this.store.refreshCatalogAndCart(false, true, true);
         const available = Number(body?.available ?? body?.data?.available);
         const productName = String(body?.product_name ?? body?.data?.product_name ?? '').trim();
         const message = Number.isFinite(available) && available > 0
@@ -250,7 +259,7 @@ export class Checkout {
       }
 
       if (error.status === 409 && code === 'ecommerce_price_unavailable') {
-        await this.store.refreshCatalogAndCart(false);
+        await this.store.refreshCatalogAndCart(false, true, true);
         const productName = String(body?.product_name ?? body?.data?.product_name ?? '').trim();
         const message = productName
           ? `${productName} requiere consultar el precio por WhatsApp y se retiró o actualizó en tu carrito.`
@@ -281,7 +290,9 @@ export class Checkout {
 
     this.isProcessing.set(true);
     try {
-      const unchanged = await this.store.revalidateCart(true);
+      // Both Mercado Pago and WhatsApp pass through this same submit path.
+      // Require a snapshot initiated from this exact action before any order is created.
+      const unchanged = await this.store.revalidateCart(true, true, false, true);
       if (!this.store.cart().length) {
         this.validationError.set('Las variantes de tu carrito ya no están disponibles.');
         return;

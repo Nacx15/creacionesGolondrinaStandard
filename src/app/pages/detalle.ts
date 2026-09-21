@@ -491,6 +491,12 @@ export class Detalle implements OnInit, OnDestroy {
   ngOnInit() {
     this.sub = this.route.params.subscribe((params) => {
       this.productId.set(params['id'] || null);
+
+      // Every product-detail navigation is a commercial checkpoint. This refreshes
+      // the selected product/variants and also lets 403/503 responses update the
+      // ecommerce status through the global interceptor. In-flight calls are reused.
+      void this.store.loadProducts(true, true);
+
       if (typeof window !== 'undefined') window.scrollTo(0, 0);
     });
   }

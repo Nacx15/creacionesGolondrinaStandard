@@ -6,6 +6,8 @@ export const environment = {
   tenant: 'cgolondrinas_gf',
   whatsappNumber: '529971141825',
   useMock: false,
-  ecommerceStatusPollMs: 10000,
-  catalogPollMs: 10000,
+
+  // Status uses cache/TTL; catalog refreshes only on explicit commercial events.
+  ecommerceStatusTtlMs: 300000,
+  ecommerceStatusRetryMs: 30000,
 };

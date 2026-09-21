@@ -1,4 +1,4 @@
-import {DestroyRef, Injectable, PLATFORM_ID, computed, effect, inject, isDevMode, signal} from '@angular/core';
+import {DestroyRef, Injectable, PLATFORM_ID, computed, effect, inject, signal} from '@angular/core';
 import {isPlatformBrowser} from '@angular/common';
 import {HttpClient} from '@angular/common/http';
 import {firstValueFrom} from 'rxjs';
@@ -127,6 +127,7 @@ export interface Product {
   variantes: ProductVariant[];
   color_images: ApiColorImage[];
   department_id?: number;
+  departmentName?: string;
   manga?: string;
   colorList?: {name: string; hex: string}[];
 }
@@ -181,13 +182,15 @@ export class Store {
   readonly priceRange = signal(2000);
 
   private catalogPromise?: Promise<boolean>;
-  private catalogMonitorId?: number;
-  private catalogMonitoringStarted = false;
+  private catalogLoadedOnce = false;
+  private catalogRefreshListenersStarted = false;
+  private catalogHiddenAt = 0;
+  private lastCatalogResumeRefreshAt = 0;
 
   constructor() {
     effect(() => saveToStorage(CART_STORAGE_KEY, this.cart()));
     effect(() => saveToStorage(WISHLIST_STORAGE_KEY, this.wishlist()));
-    this.startCatalogMonitoring();
+    this.startCatalogRefreshListeners();
     void this.bootstrapCatalog();
   }
 
@@ -200,53 +203,109 @@ export class Store {
   }
 
   async loadProducts(force = false, background = false): Promise<boolean> {
-    // A forced checkout revalidation, a polling tick and a focus event can happen at
-    // almost the same time. Always reuse the in-flight catalog request so all callers
-    // reconcile against the same authoritative snapshot.
+    // There is no catalog TTL or navigation-wide refresh. The first successful snapshot
+    // is reused until an explicit commercial checkpoint asks for a fresh one.
+    // Ordinary commercial checkpoints share the same in-flight request to avoid duplicate snapshots.
     if (this.catalogPromise) return this.catalogPromise;
-    if (!force && this.products().length > 0) return true;
-    this.catalogPromise = this.fetchProducts(background).finally(() => { this.catalogPromise = undefined; });
-    return this.catalogPromise;
+    if (!force && this.catalogLoadedOnce) return true;
+    return this.startCatalogRequest(background);
   }
 
   /**
-   * Keeps product/variant inventory synchronized with GuayaFlow while the storefront
-   * remains open. It refreshes periodically and immediately when the shopper returns
-   * to the tab, then reconciles the cart against the fresh availableBodega values.
+   * Strong availability checkpoint used by the cart.
+   * If a request was already in flight before the cart was entered, wait for it and then
+   * obtain a snapshot that started at/after this checkpoint. This prevents the cart from
+   * being reconciled against a request that belonged to the previous page.
    */
-  startCatalogMonitoring(): void {
-    if (!this.browser || this.catalogMonitoringStarted) return;
-    this.catalogMonitoringStarted = true;
-
-    const intervalMs = Math.max(5000, Number(environment.catalogPollMs ?? 10000));
-    const refresh = () => {
-      if (document.visibilityState === 'hidden' || this.statusService.status() !== 'active') return;
-      void this.refreshCatalogAndCart();
-    };
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') refresh();
-    };
-
-    this.catalogMonitorId = window.setInterval(refresh, intervalMs);
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', refreshWhenVisible);
-
-    this.destroyRef.onDestroy(() => {
-      if (this.catalogMonitorId !== undefined) window.clearInterval(this.catalogMonitorId);
-      window.removeEventListener('focus', refresh);
-      document.removeEventListener('visibilitychange', refreshWhenVisible);
-      this.catalogMonitorId = undefined;
-      this.catalogMonitoringStarted = false;
-    });
-
-    if (isDevMode()) console.debug(`[GuayaFlow] catalog/stock monitor: ${intervalMs}ms`);
+  async loadProductsFresh(background = true): Promise<boolean> {
+    const requestAlreadyInFlight = this.catalogPromise;
+    if (requestAlreadyInFlight) {
+      await requestAlreadyInFlight;
+      // Another caller may have started a newer request while this checkpoint was waiting.
+      // That request is fresh enough for this checkpoint, so reuse it instead of duplicating it.
+      if (this.catalogPromise && this.catalogPromise !== requestAlreadyInFlight) {
+        return this.catalogPromise;
+      }
+    }
+    return this.startCatalogRequest(background);
   }
 
-  async refreshCatalogAndCart(showToast = true): Promise<boolean> {
+  private startCatalogRequest(background: boolean): Promise<boolean> {
+    const request = this.fetchProducts(background).finally(() => {
+      if (this.catalogPromise === request) this.catalogPromise = undefined;
+    });
+    this.catalogPromise = request;
+    return request;
+  }
+
+  /**
+   * Event-driven refreshes only:
+   * - Inicio, Catálogo and Detalle explicitly force loadProducts(true, true);
+   * - returning from another browser tab forces one refresh (useful after ERP changes);
+   * - reconnecting forces one refresh;
+   * - cart/checkout/payment/409 recovery force their own authoritative refreshes.
+   * There is intentionally no interval, catalog TTL or generic NavigationEnd refresh.
+   */
+  private startCatalogRefreshListeners(): void {
+    if (!this.browser || this.catalogRefreshListenersStarted) return;
+    this.catalogRefreshListenersStarted = true;
+
+    const refreshAfterResume = () => {
+      if (document.visibilityState === 'hidden' || this.statusService.status() !== 'active') return;
+
+      const now = Date.now();
+      if (now - this.lastCatalogResumeRefreshAt < 1500) return;
+      this.lastCatalogResumeRefreshAt = now;
+
+      const returnedFromAnotherTab = this.catalogHiddenAt > 0;
+      this.catalogHiddenAt = 0;
+
+      // Only a real return from another tab refreshes the catalog. A plain focus event
+      // does nothing, because catalog freshness is driven by commercial checkpoints.
+      if (returnedFromAnotherTab) {
+        void this.refreshCatalogAndCart(true, true);
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        this.catalogHiddenAt = Date.now();
+        return;
+      }
+      refreshAfterResume();
+    };
+
+    const handleOnline = () => {
+      if (this.statusService.status() === 'active') {
+        void this.refreshCatalogAndCart(false, true);
+      }
+    };
+
+    window.addEventListener('focus', refreshAfterResume);
+    window.addEventListener('online', handleOnline);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    this.destroyRef.onDestroy(() => {
+      window.removeEventListener('focus', refreshAfterResume);
+      window.removeEventListener('online', handleOnline);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      this.catalogRefreshListenersStarted = false;
+    });
+  }
+
+  async refreshCatalogAndCart(
+    showToast = true,
+    forceCatalog = true,
+    requireFreshCheckpoint = false,
+    notifyWhenCurrent = false,
+  ): Promise<boolean> {
     if (this.statusService.status() !== 'active') return false;
-    const loaded = await this.loadProducts(true, true);
+    const loaded = requireFreshCheckpoint
+      ? await this.loadProductsFresh(true)
+      : await this.loadProducts(forceCatalog, true);
     if (!loaded) return false;
-    if (this.cart().length) await this.revalidateCart(showToast, false);
+    if (this.cart().length) await this.revalidateCart(showToast, false, notifyWhenCurrent);
+    else if (showToast && notifyWhenCurrent) this.toast.success('Existencias actualizadas. Tu carrito está al día.');
     return true;
   }
 
@@ -258,15 +317,22 @@ export class Store {
       // previous inventory snapshot after stock changes in the ERP.
       const refreshToken = Date.now();
       const data = await firstValueFrom(this.http.get<ApiEcommerceResponse>(`${environment.apiUrl}/productos/ecommerce`, {params: {_gf_refresh: refreshToken}}));
+      // A successful protected catalog response is also evidence that the tenant is active.
+      // This refreshes the status cache without adding another /ecommerce/status request.
+      this.statusService.setFromHttpState('active');
       this.masterDepartamentos.set(Array.isArray(data?.departamentos) ? data.departamentos : []);
       this.masterTallas.set(Array.isArray(data?.tallas) ? data.tallas : []);
       this.masterColores.set(Array.isArray(data?.colores) ? data.colores : []);
       this.masterMangas.set(Array.isArray(data?.mangas) ? data.mangas : []);
       const source = Array.isArray(data?.productos) ? data.productos : Array.isArray(data?.data?.productos) ? data.data!.productos! : [];
+      const previousMaxPrice = this.maxAvailablePrice();
+      const priceWasAtMaximum = previousMaxPrice <= 0 || this.priceRange() >= previousMaxPrice;
       this.products.set(source.map((product) => this.mapProduct(product)));
+      this.reconcileDynamicFilters(priceWasAtMaximum);
+      this.catalogLoadedOnce = true;
       return true;
     } catch (error) {
-      this.products.set([]);
+      if (!background && !this.catalogLoadedOnce) this.products.set([]);
       const message = getApiErrorMessage(error, 'No fue posible cargar el catálogo real.');
       this.catalogError.set(message);
       return false;
@@ -313,6 +379,7 @@ export class Store {
       variantes: variants,
       color_images: api.color_images ?? [],
       department_id: api.department_id,
+      departmentName: String(api.departamento ?? '').trim() || undefined,
       manga: api.manga || api.tipo_manga || '',
       colorList,
     };
@@ -350,37 +417,108 @@ export class Store {
     return product.variantes.find((variant) => variant.talla === mapSizeToNumber(size) && variant.color.toLowerCase() === String(color).trim().toLowerCase());
   }
 
+  readonly availableCategories = computed(() => {
+    return ['Todos', ...this.uniqueFacetValues(this.products().map((product) => this.productDepartmentName(product)))];
+  });
+
   readonly availableSizes = computed(() => {
     const set = new Set<string>();
     this.productsForSelectedCategory().forEach((product) => product.variantes.forEach((variant) => {
       if (variant.availableBodega > 0 && variant.talla) set.add(variant.talla);
     }));
-    return ['Todos', ...Array.from(set).sort((a, b) => (Number(a) || 999) - (Number(b) || 999) || a.localeCompare(b))];
+    return ['Todos', ...Array.from(set).sort((a, b) => (Number(a) || 999) - (Number(b) || 999) || a.localeCompare(b, 'es', {sensitivity: 'base'}))];
   });
-  readonly availableColors = computed(() => {
-    const set = new Set<string>();
-    this.productsForSelectedCategory().forEach((product) => product.variantes.forEach((variant) => {
-      if (variant.availableBodega > 0 && variant.color) set.add(variant.color);
-    }));
-    return ['Todos', ...Array.from(set).sort()];
-  });
-  readonly availableCategories = computed(() => {
-    const set = new Set<string>();
-    this.masterDepartamentos().forEach((dept) => { const name = String(dept.name || dept.nombre || '').trim(); if (name) set.add(name); });
-    this.products().forEach((product) => set.add(product.category));
-    return ['Todos', ...Array.from(set).sort()];
-  });
-  readonly availableMangas = computed(() => {
-    const set = new Set<string>();
-    this.masterMangas().forEach((manga) => { const name = String(manga.name || manga.nombre || '').trim(); if (name) set.add(name); });
-    this.products().forEach((product) => { if (product.manga) set.add(product.manga); });
-    return ['Todos', ...Array.from(set).sort()];
-  });
-  readonly availableTypes = computed(() => ['Todos', ...Array.from(new Set(this.products().map((p) => p.type))).sort()]);
 
-  private productsForSelectedCategory() {
+  readonly availableColors = computed(() => {
+    const colors: string[] = [];
+    this.productsForSelectedCategory().forEach((product) => product.variantes.forEach((variant) => {
+      if (variant.availableBodega > 0 && variant.color) colors.push(variant.color);
+    }));
+    return ['Todos', ...this.uniqueFacetValues(colors)];
+  });
+
+  readonly availableMangas = computed(() => {
+    return ['Todos', ...this.uniqueFacetValues(this.productsForSelectedCategory().map((product) => product.manga ?? ''))];
+  });
+
+  readonly availableTypes = computed(() => ['Todos', ...this.uniqueFacetValues(this.products().map((product) => product.type))]);
+
+  readonly minAvailablePrice = computed(() => {
+    const prices = this.productsForSelectedCategory().map((product) => product.price).filter((price) => Number.isFinite(price) && price > 0);
+    return prices.length ? Math.min(...prices) : 0;
+  });
+
+  readonly maxAvailablePrice = computed(() => {
+    const prices = this.productsForSelectedCategory().map((product) => product.price).filter((price) => Number.isFinite(price) && price > 0);
+    return prices.length ? Math.max(...prices) : 0;
+  });
+
+  readonly priceStep = computed(() => {
+    const span = Math.max(0, this.maxAvailablePrice() - this.minAvailablePrice());
+    if (span === 0) return 1;
+    if (span % 100 === 0 && span >= 1000) return 100;
+    if (span % 50 === 0) return 50;
+    if (span % 10 === 0) return 10;
+    return 1;
+  });
+
+  readonly hasDynamicPriceRange = computed(() => this.maxAvailablePrice() > this.minAvailablePrice());
+  readonly isPriceFilterActive = computed(() => this.hasDynamicPriceRange() && this.priceRange() > 0 && this.priceRange() < this.maxAvailablePrice());
+
+  private normalizeFacetValue(value: string): string {
+    return String(value || '').trim().toLocaleLowerCase('es-MX');
+  }
+
+  private uniqueFacetValues(values: string[]): string[] {
+    const unique = new Map<string, string>();
+    for (const raw of values) {
+      const value = String(raw || '').trim();
+      if (!value) continue;
+      const key = this.normalizeFacetValue(value);
+      if (!unique.has(key)) unique.set(key, value);
+    }
+    return Array.from(unique.values()).sort((a, b) => a.localeCompare(b, 'es', {sensitivity: 'base'}));
+  }
+
+  private productDepartmentName(product: Product): string {
+    const direct = String(product.departmentName || '').trim();
+    if (direct) return direct;
+    if (product.department_id) {
+      const department = this.masterDepartamentos().find((item) => Number(item.id) === Number(product.department_id));
+      const masterName = String(department?.name || department?.nombre || '').trim();
+      if (masterName) return masterName;
+    }
+    return String(product.category || '').trim();
+  }
+
+  private productsForSelectedCategory(): Product[] {
     const category = this.selectedCategory();
-    return this.products().filter((product) => category === 'Todos' || product.category === category || (product.department_id && this.masterDepartamentos().some((dept) => dept.id === product.department_id && (dept.name || dept.nombre) === category)));
+    if (category === 'Todos') return this.products();
+    const normalized = this.normalizeFacetValue(category);
+    return this.products().filter((product) => this.normalizeFacetValue(this.productDepartmentName(product)) === normalized);
+  }
+
+  private reconcileDynamicFilters(priceWasAtMaximum: boolean): void {
+    const hasValue = (values: string[], selected: string) => values.some((value) => this.normalizeFacetValue(value) === this.normalizeFacetValue(selected));
+    if (!hasValue(this.availableCategories(), this.selectedCategory())) this.selectedCategory.set('Todos');
+    if (!hasValue(this.availableSizes(), this.selectedSize())) this.selectedSize.set('Todos');
+    if (!hasValue(this.availableColors(), this.selectedColor())) this.selectedColor.set('Todos');
+    if (!hasValue(this.availableMangas(), this.selectedManga())) this.selectedManga.set('Todos');
+    if (!hasValue(this.availableTypes(), this.selectedType())) this.selectedType.set('Todos');
+
+    const minPrice = this.minAvailablePrice();
+    const maxPrice = this.maxAvailablePrice();
+    if (maxPrice <= 0) {
+      this.priceRange.set(0);
+      return;
+    }
+
+    if (priceWasAtMaximum || this.priceRange() <= 0) {
+      this.priceRange.set(maxPrice);
+      return;
+    }
+
+    this.priceRange.set(Math.min(maxPrice, Math.max(minPrice, this.priceRange())));
   }
 
   readonly filteredProducts = computed(() => this.products().filter((product) => {
@@ -391,7 +529,7 @@ export class Store {
     const matchesSize = this.selectedSize() === 'Todos' || product.variantes.some((v) => v.talla === mapSizeToNumber(this.selectedSize()) && v.availableBodega > 0);
     const matchesColor = this.selectedColor() === 'Todos' || product.variantes.some((v) => v.color.toLowerCase() === this.selectedColor().toLowerCase() && v.availableBodega > 0);
     const matchesManga = this.selectedManga() === 'Todos' || String(product.manga ?? '').toLowerCase() === this.selectedManga().toLowerCase();
-    const matchesPrice = product.price <= 0 || product.price <= this.priceRange();
+    const matchesPrice = !this.isPriceFilterActive() || (product.price > 0 && product.price <= this.priceRange());
     return matchesSearch && matchesCategory && matchesType && matchesSize && matchesColor && matchesManga && matchesPrice;
   }));
 
@@ -402,9 +540,27 @@ export class Store {
   }, 0));
 
   resetFilters() {
-    this.searchQuery.set(''); this.selectedCategory.set('Todos'); this.selectedType.set('Todos'); this.selectedSize.set('Todos'); this.selectedColor.set('Todos'); this.selectedManga.set('Todos'); this.priceRange.set(2000);
+    this.searchQuery.set('');
+    this.selectedCategory.set('Todos');
+    this.selectedType.set('Todos');
+    this.selectedSize.set('Todos');
+    this.selectedColor.set('Todos');
+    this.selectedManga.set('Todos');
+    this.priceRange.set(this.maxAvailablePrice());
   }
-  setCategory(category: string) { this.selectedCategory.set(category); this.selectedSize.set('Todos'); this.selectedColor.set('Todos'); }
+
+  resetPriceFilter() {
+    this.priceRange.set(this.maxAvailablePrice());
+  }
+
+  setCategory(category: string) {
+    this.selectedCategory.set(category);
+    this.selectedType.set('Todos');
+    this.selectedSize.set('Todos');
+    this.selectedColor.set('Todos');
+    this.selectedManga.set('Todos');
+    this.priceRange.set(this.maxAvailablePrice());
+  }
 
   addToCart(product: Product, quantity = 1, size: string, color: string): boolean {
     const variant = this.getVariant(product, size, color);
@@ -441,8 +597,15 @@ export class Store {
   }
   clearCart() { this.cart.set([]); }
 
-  async revalidateCart(showToast = true, forceCatalog = true): Promise<boolean> {
-    const loaded = await this.loadProducts(forceCatalog);
+  async revalidateCart(
+    showToast = true,
+    forceCatalog = true,
+    notifyWhenCurrent = false,
+    requireFreshCheckpoint = false,
+  ): Promise<boolean> {
+    const loaded = requireFreshCheckpoint
+      ? await this.loadProductsFresh(true)
+      : await this.loadProducts(forceCatalog);
     if (!loaded) throw new Error(this.catalogError() || 'No fue posible revalidar el carrito.');
     const next: CartItem[] = [];
     let adjusted = 0;
@@ -450,16 +613,37 @@ export class Store {
     for (const old of this.cart()) {
       const product = this.products().find((p) => p.id === old.product.id);
       if (!product) { removed++; continue; }
-      const variant = product.variantes.find((v) => v.id === old.variantId) || this.getVariant(product, old.selectedSize, old.selectedColor);
+
+      const oldVariant = old.product.variantes.find((v) => v.id === old.variantId)
+        || this.getVariant(old.product, old.selectedSize, old.selectedColor);
+      const variant = product.variantes.find((v) => v.id === old.variantId)
+        || this.getVariant(product, old.selectedSize, old.selectedColor);
+
       if (!variant || variant.availableBodega <= 0 || variant.precio_ecommerce <= 0) { removed++; continue; }
+
       const quantity = Math.min(old.quantity, variant.availableBodega);
-      if (quantity !== old.quantity || variant.id !== old.variantId || variant.precio_ecommerce !== old.unitPrice) adjusted++;
-      next.push({product, variantId: variant.id, quantity, selectedSize: variant.talla, selectedColor: variant.color, unitPrice: variant.precio_ecommerce});
+      const availabilityChanged = oldVariant?.availableBodega !== variant.availableBodega;
+      if (
+        quantity !== old.quantity
+        || variant.id !== old.variantId
+        || variant.precio_ecommerce !== old.unitPrice
+        || availabilityChanged
+      ) adjusted++;
+
+      next.push({
+        product,
+        variantId: variant.id,
+        quantity,
+        selectedSize: variant.talla,
+        selectedColor: variant.color,
+        unitPrice: variant.precio_ecommerce,
+      });
     }
     this.cart.set(next);
     if (showToast) {
       if (removed) this.toast.warning(`${removed} variante(s) se retiraron del carrito por cambios de disponibilidad o precio.`);
-      if (adjusted) this.toast.info(`${adjusted} variante(s) del carrito se actualizaron con la información vigente.`);
+      if (adjusted) this.toast.info(`${adjusted} variante(s) del carrito se actualizaron con las existencias y precios vigentes.`);
+      if (!removed && !adjusted && notifyWhenCurrent) this.toast.success('Existencias actualizadas. Tu carrito está al día.');
     }
     return removed === 0 && adjusted === 0;
   }

@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, inject, OnInit} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, OnInit, signal} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {RouterLink} from '@angular/router';
 import {Store, CartItem} from '../components/store';
@@ -20,6 +20,12 @@ import {MatIconModule} from '@angular/material/icon';
           <p class="text-gray-500 text-xs md:text-sm">
             Estás a un paso de vestir la artesanía de Tekit. Revisa tu pedido y continúa con la compra segura.
           </p>
+          @if (refreshingStock()) {
+            <div class="mt-3 inline-flex items-center gap-2 text-xs font-medium text-brand-pink" aria-live="polite">
+              <mat-icon class="text-base h-4 w-4 animate-spin">sync</mat-icon>
+              Actualizando existencias...
+            </div>
+          }
         </div>
 
         @if (store.cart().length === 0) {
@@ -73,9 +79,9 @@ import {MatIconModule} from '@angular/material/icon';
                         <span class="bg-brand-cream text-gray-600 px-2.5 py-0.5 rounded-md text-[10px] font-medium border border-gray-100">
                           Color: {{ item.selectedColor }}
                         </span>
-                        <!-- <span class="bg-brand-cream text-gray-600 px-2.5 py-0.5 rounded-md text-[10px] font-medium border border-gray-100">
-                          {{ item.product.fabric }}
-                        </span> -->
+                        <span class="bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-md text-[10px] font-semibold border border-emerald-100">
+                          Disponibles: {{ getAvailableStock(item) }}
+                        </span>
                       </div>
                     </div>
 
@@ -170,18 +176,28 @@ import {MatIconModule} from '@angular/material/icon';
 })
 export class Carrito implements OnInit {
   readonly store = inject(Store);
+  readonly refreshingStock = signal(false);
   private readonly seo = inject(Seo);
 
-  ngOnInit() {
+  async ngOnInit() {
     this.seo.setMetaTags(
       'Carrito de Compras',
       'Revisa las guayaberas, vestidos y blusas yucatecas en tu carrito de compras de Creaciones Golondrina y prepárate para finalizar tu pedido con envío seguro.',
       ['mi carrito', 'comprar ropa yucateca', 'guayaberas Tekit online']
     );
 
-    // Entering the cart is an explicit availability checkpoint in addition to the
-    // background monitor and the final checkout revalidation.
-    void this.store.refreshCatalogAndCart(true);
+    // Entering the cart is a strong availability checkpoint. It must not be satisfied
+    // by a catalog request that started on the previous page.
+    this.refreshingStock.set(true);
+    try {
+      await this.store.refreshCatalogAndCart(true, true, true, true);
+    } finally {
+      this.refreshingStock.set(false);
+    }
+  }
+
+  getAvailableStock(item: CartItem): number {
+    return this.store.getVariant(item.product, item.selectedSize, item.selectedColor)?.availableBodega ?? 0;
   }
 
   getItemPrice(item: CartItem): number {
