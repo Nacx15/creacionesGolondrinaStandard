@@ -1,5 +1,6 @@
 import {Injectable, inject} from '@angular/core';
 import {Title, Meta} from '@angular/platform-browser';
+import {environment} from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
@@ -20,7 +21,7 @@ export class Seo {
     this.metaService.updateTag({property: 'og:title', content: fullTitle});
     this.metaService.updateTag({property: 'og:description', content: description});
     this.metaService.updateTag({property: 'og:type', content: 'website'});
-    this.metaService.updateTag({property: 'og:image', content: 'https://assets.sm-panel.site/gallery/creacionesgolondrina/logo_creaciones_golondrina.jpeg'});
+    this.metaService.updateTag({property: 'og:image', content: environment.brandImages.logo});
 
     // Twitter Card
     this.metaService.updateTag({name: 'twitter:card', content: 'summary_large_image'});
@@ -33,7 +34,7 @@ export class Seo {
       '@context': 'https://schema.org',
       '@type': 'LocalBusiness',
       'name': 'Creaciones Golondrina',
-      'image': 'https://assets.sm-panel.site/gallery/creacionesgolondrina/tienda_frente.jpeg',
+      'image': environment.brandImages.homeHero,
       'telephone': '+52 9971141825',
       'email': 'creacionesgolondrina54@gmail.com',
       'address': {

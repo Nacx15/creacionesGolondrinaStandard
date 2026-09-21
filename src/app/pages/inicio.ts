@@ -4,6 +4,7 @@ import {Router, RouterLink} from '@angular/router';
 import {Store} from '../components/store';
 import {Seo} from '../components/seo';
 import {MatIconModule} from '@angular/material/icon';
+import {environment} from '../../environments/environment';
 
 @Component({
   selector: 'app-inicio',
@@ -16,7 +17,7 @@ import {MatIconModule} from '@angular/material/icon';
       <div class="absolute inset-0 bg-black/60 z-10"></div>
       <div class="absolute inset-0 z-0">
         <img 
-          src="https://assets.sm-panel.site/gallery/creacionesgolondrina/tienda_frente.jpeg" 
+          [src]="brandImages.homeHero" 
           alt="Boutique Creaciones Golondrina en Tekit" 
           class="w-full h-full object-cover"
           referrerpolicy="no-referrer"
@@ -315,6 +316,7 @@ export class Inicio implements OnInit, OnDestroy {
   private readonly seo = inject(Seo);
   private readonly router = inject(Router);
 
+  readonly brandImages = environment.brandImages;
   readonly activeSlide = signal<number>(0);
   private slideInterval: ReturnType<typeof setInterval> | undefined;
 

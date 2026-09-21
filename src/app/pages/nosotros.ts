@@ -2,6 +2,7 @@ import {ChangeDetectionStrategy, Component, inject, OnInit} from '@angular/core'
 import {CommonModule} from '@angular/common';
 import {Seo} from '../components/seo';
 import {MatIconModule} from '@angular/material/icon';
+import {environment} from '../../environments/environment';
 
 @Component({
   selector: 'app-nosotros',
@@ -15,7 +16,7 @@ import {MatIconModule} from '@angular/material/icon';
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center max-w-6xl mx-auto mb-20">
           <div class="relative rounded-2xl overflow-hidden shadow-md aspect-4/3 border border-brand-pink/10">
             <img 
-              src="https://assets.sm-panel.site/gallery/creacionesgolondrina/marta_puc_fundadora.jpeg" 
+              [src]="brandImages.founder" 
               alt="Maestra Artesana Martha María Puc Loeza" 
               class="w-full h-auto object-cover"
               referrerpolicy="no-referrer"
@@ -121,6 +122,7 @@ import {MatIconModule} from '@angular/material/icon';
 })
 export class Nosotros implements OnInit {
   private readonly seo = inject(Seo);
+  readonly brandImages = environment.brandImages;
 
   ngOnInit() {
     this.seo.setMetaTags(
