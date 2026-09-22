@@ -317,9 +317,11 @@ export class Store {
       // previous inventory snapshot after stock changes in the ERP.
       const refreshToken = Date.now();
       const data = await firstValueFrom(this.http.get<ApiEcommerceResponse>(`${environment.apiUrl}/productos/ecommerce`, {params: {_gf_refresh: refreshToken}}));
-      // A successful protected catalog response is also evidence that the tenant is active.
-      // This refreshes the status cache without adding another /ecommerce/status request.
-      this.statusService.setFromHttpState('active');
+      // El catálogo NO sustituye /ecommerce/status ni reabre una tienda cuyo status
+      // esté bloqueado/no disponible. Tampoco renueva el TTL de shipping.
+      if (this.statusService.status() === 'active') {
+        this.statusService.setFromHttpState('active');
+      }
       this.masterDepartamentos.set(Array.isArray(data?.departamentos) ? data.departamentos : []);
       this.masterTallas.set(Array.isArray(data?.tallas) ? data.tallas : []);
       this.masterColores.set(Array.isArray(data?.colores) ? data.colores : []);

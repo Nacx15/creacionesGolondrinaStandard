@@ -5,11 +5,12 @@ import {Store} from '../components/store';
 import {Seo} from '../components/seo';
 import {MatIconModule} from '@angular/material/icon';
 import {environment} from '../../environments/environment';
+import {ShippingPromoComponent} from '../components/shipping-promo.component';
 
 @Component({
   selector: 'app-inicio',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatIconModule],
+  imports: [CommonModule, RouterLink, MatIconModule, ShippingPromoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Hero Section with Custom Generated Boutique Banner -->
@@ -41,6 +42,8 @@ import {environment} from '../../environments/environment';
         </div>
       </div>
     </section>
+
+    <div class="bg-white py-5"><div class="container mx-auto px-4 max-w-5xl"><app-shipping-promo /></div></div>
 
     <!-- Interactive Promo / Offers & Reviews Carousel -->
     <section class="py-16 bg-white border-b border-gray-100">
@@ -417,22 +420,22 @@ export class Inicio implements OnInit, OnDestroy {
     const key = this.normalizeCategory(name);
     const presentations: Record<string, {image: string; alt: string; description: string}> = {
       caballeros: {
-        image: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=600&q=80',
+        image: environment.brandImages.category.caballeros,
         alt: 'Guayaberas para Caballeros',
         description: 'Guayaberas presidenciales, manga corta, de lino premium e hilo fino.',
       },
       damas: {
-        image: 'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?auto=format&fit=crop&w=600&q=80',
+        image: environment.brandImages.category.damas,
         alt: 'Ropa típica para Damas',
         description: 'Vestidos tradicionales "Huipil", blusas bordadas campesinas y de lino.',
       },
       ninos: {
-        image: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=600&q=80',
+        image: environment.brandImages.category.ninos,
         alt: 'Guayaberas y ropa típica para niños',
         description: 'Guayaberas infantiles suaves de algodón.',
       },
       ninas: {
-        image: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=600&q=80',
+        image: environment.brandImages.category.ninas,
         alt: 'Vestidos y ropa típica para niñas',
         description: 'Hermosos vestidos bordados.',
       },

@@ -6,11 +6,12 @@ import {Seo} from '../components/seo';
 import {MatIconModule} from '@angular/material/icon';
 import {Subscription} from 'rxjs';
 import {environment} from '../../environments/environment';
+import {ShippingPromoComponent} from '../components/shipping-promo.component';
 
 @Component({
   selector: 'app-detalle',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatIconModule],
+  imports: [CommonModule, RouterLink, MatIconModule, ShippingPromoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="py-12 bg-brand-cream animate-fade-in">
@@ -92,6 +93,8 @@ import {environment} from '../../environments/environment';
                     </div>
                   }
                 </div>
+
+                <app-shipping-promo class="block mb-6" />
 
                 @if (currentVariantPrice() <= 0) {
                   <!-- Price Not Available Notice -->

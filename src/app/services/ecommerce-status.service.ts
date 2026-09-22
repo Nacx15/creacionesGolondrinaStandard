@@ -3,6 +3,7 @@ import {DestroyRef, Injectable, PLATFORM_ID, inject, signal} from '@angular/core
 import {isPlatformBrowser} from '@angular/common';
 import {firstValueFrom} from 'rxjs';
 import {environment} from '../../environments/environment';
+import {EcommerceShippingConfiguration, ShippingEstimate, estimateShipping, parseShippingConfiguration} from './shipping-rule.util';
 
 export type EcommerceRuntimeStatus = 'checking' | 'active' | 'maintenance' | 'inactive' | 'unavailable';
 
@@ -15,9 +16,16 @@ export class EcommerceStatusService {
 
   readonly status = signal<EcommerceRuntimeStatus>('checking');
   readonly message = signal<string | null>(null);
+  readonly shipping = signal<EcommerceShippingConfiguration | null>(null);
+
+  estimateShipping(itemCount: number, subtotal: number): ShippingEstimate | null {
+    return estimateShipping(this.shipping(), itemCount, subtotal);
+  }
 
   private inFlight?: Promise<EcommerceRuntimeStatus>;
   private lastValidatedAt = 0;
+  private lastShippingValidatedAt = 0;
+  private hiddenAt = 0;
   private runtimeRefreshStarted = false;
   private lastResumeCheckAt = 0;
 
@@ -48,14 +56,18 @@ export class EcommerceStatusService {
   setFromHttpState(status: EcommerceRuntimeStatus, message?: string | null): void {
     this.status.set(status);
     this.message.set(message?.trim() || null);
+    if (status !== 'active') {
+      this.shipping.set(null);
+      this.lastShippingValidatedAt = 0;
+    }
     this.lastValidatedAt = Date.now();
   }
 
   /**
    * Event-driven status refresh. There is intentionally no interval/polling here.
    * While active, ordinary GuayaFlow calls are enough to surface 403/503 immediately.
-   * If the shop is blocked/unavailable, returning to the tab or reconnecting forces a
-   * status check so the storefront can recover without requiring a manual reload.
+   * Volver de otra pestaña o recuperar la conexión reconsulta también las reglas de
+   * envío si la tienda sigue activa, sin hacer polling de status por cada cambio de carrito.
    */
   startRuntimeRefresh(): void {
     if (!this.browser || this.runtimeRefreshStarted) return;
@@ -67,22 +79,28 @@ export class EcommerceStatusService {
       this.lastResumeCheckAt = now;
 
       const current = this.status();
-      if (current !== 'active') {
+      if (current !== 'active' || this.hiddenAt > 0) {
+        this.hiddenAt = 0;
         void this.ensureStatus(true);
       }
     };
 
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') refreshBlockedState();
+      if (document.visibilityState === 'hidden') this.hiddenAt = Date.now();
+      else refreshBlockedState();
+    };
+    const refreshWhenOnline = () => {
+      this.hiddenAt = Date.now();
+      refreshBlockedState();
     };
 
     window.addEventListener('focus', refreshBlockedState);
-    window.addEventListener('online', refreshBlockedState);
+    window.addEventListener('online', refreshWhenOnline);
     document.addEventListener('visibilitychange', refreshWhenVisible);
 
     this.destroyRef.onDestroy(() => {
       window.removeEventListener('focus', refreshBlockedState);
-      window.removeEventListener('online', refreshBlockedState);
+      window.removeEventListener('online', refreshWhenOnline);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
       this.runtimeRefreshStarted = false;
     });
@@ -97,7 +115,14 @@ export class EcommerceStatusService {
       return age < retryMs;
     }
 
-    const ttlMs = Math.max(30000, Number(environment.ecommerceStatusTtlMs ?? 300000));
+    // El catálogo protegido confirma estado activo, pero NO actualiza la versión
+    // de la configuración de envío. Se conserva un TTL independiente.
+    const ttlMs = Math.max(1000, Number(environment.ecommerceStatusTtlMs ?? 3000));
+    if (current === 'active') {
+      return this.shipping() !== null &&
+        this.lastShippingValidatedAt > 0 &&
+        Date.now() - this.lastShippingValidatedAt < ttlMs;
+    }
     return age < ttlMs;
   }
 
@@ -108,6 +133,11 @@ export class EcommerceStatusService {
       const next: EcommerceRuntimeStatus = raw === 'active' || raw === 'maintenance' || raw === 'inactive' ? raw : 'unavailable';
       const message = response?.message ?? response?.data?.message ?? null;
       this.setFromHttpState(next, typeof message === 'string' ? message : null);
+      if (next === 'active') {
+        // Solo data.shipping del status, no tarifas heredadas ni valores del catálogo.
+        this.shipping.set(parseShippingConfiguration(response?.data?.shipping));
+        this.lastShippingValidatedAt = this.shipping() ? Date.now() : 0;
+      }
       return next;
     } catch (error) {
       if (error instanceof HttpErrorResponse) {
