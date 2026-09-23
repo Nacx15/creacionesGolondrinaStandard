@@ -25,7 +25,7 @@ import {ShippingPromoComponent} from '../components/shipping-promo.component';
           <div class="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm max-w-xl mx-auto">
             <mat-icon class="text-brand-pink text-4xl h-10 w-10 mx-auto mb-4 animate-spin">sync</mat-icon>
             <h3 class="font-serif-brand text-2xl font-bold text-gray-900 mb-2">Cargando prenda</h3>
-            <p class="text-gray-500 text-sm">Consultando la variante y disponibilidad vigentes en GuayaFlow.</p>
+            <p class="text-gray-500 text-sm">Consultando información.</p>
           </div>
         } @else if (product()) {
           <!-- Main Product Area -->

@@ -19,6 +19,6 @@ export const routes: Routes = [
 
   {path: 'maintenance', data: {title: 'Estamos en mantenimiento', message: 'Creaciones Golondrina está realizando ajustes en su tienda en línea. El catálogo y checkout permanecerán bloqueados temporalmente.', icon: 'construction'}, loadComponent: () => import('./pages/store-state').then((m) => m.StoreStatePage)},
   {path: 'inactive', data: {title: 'Tienda temporalmente inactiva', message: 'La tienda en línea de Creaciones Golondrina no está disponible en este momento.', icon: 'storefront'}, loadComponent: () => import('./pages/store-state').then((m) => m.StoreStatePage)},
-  {path: 'store-unavailable', data: {title: 'No pudimos validar la tienda', message: 'Por seguridad, el e-commerce permanece cerrado hasta que GuayaFlow pueda confirmar su estado.', icon: 'cloud_off'}, loadComponent: () => import('./pages/store-state').then((m) => m.StoreStatePage)},
+  {path: 'store-unavailable', data: {title: 'No pudimos validar la tienda', message: 'Por seguridad, el e-commerce permanece cerrado hasta que se pueda confirmar su estado.', icon: 'cloud_off'}, loadComponent: () => import('./pages/store-state').then((m) => m.StoreStatePage)},
   {path: '**', redirectTo: ''},
 ];

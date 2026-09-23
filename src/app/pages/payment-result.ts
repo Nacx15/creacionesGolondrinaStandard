@@ -52,11 +52,11 @@ type ViewState = 'checking' | 'approved' | 'pending' | 'terminal' | 'error';
             @if (viewState() === 'checking') {
               <div class="w-16 h-16 rounded-full bg-brand-light-pink text-brand-pink flex items-center justify-center mx-auto mb-5"><mat-icon class="text-3xl animate-spin">sync</mat-icon></div>
               <h1 class="font-serif-brand text-3xl font-bold text-gray-900 mb-3">Estamos confirmando tu pago</h1>
-              <p class="text-gray-500">La página de regreso no aprueba el pedido por sí sola. Estamos consultando el estado firmado de GuayaFlow mientras el webhook confirma el pago.</p>
+              <p class="text-gray-500">Espera a que se confirme tu pago.</p>
             } @else if (viewState() === 'approved') {
               <div class="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-5"><mat-icon class="text-3xl">check_circle</mat-icon></div>
               <h1 class="font-serif-brand text-3xl font-bold text-gray-900 mb-3">Pago confirmado</h1>
-              <p class="text-gray-500 mb-5">GuayaFlow confirmó la venta y el pago. Tu carrito ya fue limpiado.</p>
+              <p class="text-gray-500 mb-5">Se confirmó la venta y el pago. Tu carrito ya fue limpiado.</p>
             } @else if (viewState() === 'pending') {
               <div class="w-16 h-16 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-5"><mat-icon class="text-3xl">schedule</mat-icon></div>
               <h1 class="font-serif-brand text-3xl font-bold text-gray-900 mb-3">Pago pendiente de confirmación</h1>

@@ -268,7 +268,7 @@ import {environment} from '../../environments/environment';
               <div class="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm min-h-96 flex flex-col items-center justify-center">
                 <mat-icon class="text-brand-pink text-4xl h-10 w-10 animate-spin mb-4">sync</mat-icon>
                 <h3 class="font-serif-brand text-2xl font-bold text-gray-900 mb-2">Cargando catálogo</h3>
-                <p class="text-gray-500 text-sm">Consultando existencias y precios vigentes en GuayaFlow.</p>
+                <p class="text-gray-500 text-sm">Consultando existencias y precios vigentes.</p>
               </div>
             } @else if (store.catalogError()) {
               <div class="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm min-h-96 flex flex-col items-center justify-center">

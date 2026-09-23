@@ -8,9 +8,6 @@ import {Store, CartItem} from '../components/store';
 import {Seo} from '../components/seo';
 import {environment} from '../../environments/environment';
 import {CheckoutSessionService} from '../services/checkout-session.service';
-import {EcommerceStatusService} from '../services/ecommerce-status.service';
-import {ShippingPromoComponent} from '../components/shipping-promo.component';
-import {AuthoritativeCheckoutTotals, extractAuthoritativeTotals} from '../services/checkout-totals.util';
 import {ToastService} from '../services/toast.service';
 import {getApiErrorMessage} from '../shared/http/api-error.util';
 
@@ -49,7 +46,7 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
 @Component({
   selector: 'app-checkout',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatIconModule, ShippingPromoComponent],
+  imports: [CommonModule, RouterLink, MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="py-12 bg-brand-cream animate-fade-in relative">
@@ -61,7 +58,7 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
             <mat-icon class="absolute inset-0 m-auto text-white text-3xl h-8 w-8">lock</mat-icon>
           </div>
           <h2 class="font-serif-brand text-2xl md:text-3xl font-bold text-white mb-2">Preparando tu pago seguro</h2>
-          <p class="text-gray-300 text-sm max-w-md">Estamos revalidando existencias y solicitando a GuayaFlow los totales autoritativos antes de enviarte a Mercado Pago.</p>
+          <p class="text-gray-300 text-sm max-w-md">Estamos revalidando existencias antes de enviarte a Mercado Pago.</p>
         </div>
       }
 
@@ -69,7 +66,7 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
         <div class="text-center max-w-xl mx-auto mb-10">
           <h1 class="font-serif-brand text-4xl font-bold text-gray-900">Finalizar Compra</h1>
           <div class="w-12 h-1 bg-brand-pink mx-auto mt-2 rounded-full mb-4"></div>
-          <p class="text-gray-500 text-sm">Tu cobro se completa en Mercado Pago. Creaciones Golondrina no solicita datos de tarjeta en este sitio.</p>
+          <!-- <p class="text-gray-500 text-sm">Tu cobro se completa en Mercado Pago. Creaciones Golondrina no solicita datos de tarjeta en este sitio.</p> -->
         </div>
 
         @if (store.cart().length === 0) {
@@ -113,12 +110,12 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
                 @if (payMethod() === 'MercadoPago') {
                   <div class="bg-brand-cream border border-brand-pink/10 p-6 rounded-2xl flex gap-4 items-start">
                     <mat-icon class="text-brand-pink">verified_user</mat-icon>
-                    <div><h4 class="font-bold text-gray-900">Mercado Pago</h4><p class="text-sm text-gray-600 mt-1 leading-relaxed">GuayaFlow reservará inventario y recalculará precio, envío y total. Después serás redirigido en esta misma pestaña a Mercado Pago.</p></div>
+                    <div><h4 class="font-bold text-gray-900">Mercado Pago</h4><p class="text-sm text-gray-600 mt-1 leading-relaxed">Te redirigiremos a Mercado Pago para finalizar tu compra.</p></div>
                   </div>
                 } @else {
                   <div class="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl flex gap-4 items-start">
                     <mat-icon class="text-emerald-600">chat</mat-icon>
-                    <div><h4 class="font-bold text-emerald-900">Pedido por WhatsApp</h4><p class="text-sm text-emerald-800 mt-1 leading-relaxed">Primero registraremos el pedido en GuayaFlow con la variante, precio y stock vigentes. Solo si el backend lo acepta abriremos el chat para coordinar el pago y envío.</p></div>
+                    <div><h4 class="font-bold text-emerald-900">Pedido por WhatsApp</h4><p class="text-sm text-emerald-800 mt-1 leading-relaxed">Validaremos existencias antes de realizar tu pedido.</p></div>
                   </div>
                 }
               </div>
@@ -134,33 +131,17 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
                   </div>
                 }
               </div>
-              <app-shipping-promo class="block mb-5" />
               <div class="space-y-3 pt-4 border-t border-gray-100 mb-6 text-xs md:text-sm">
                 <div class="flex justify-between text-gray-500"><span>Productos ({{ store.cartTotalItems() }} piezas)</span><span class="font-semibold text-gray-900">{{ '$' + store.cartTotalPrice() }} MXN</span></div>
-                <div class="flex justify-between gap-3 text-gray-500">
-                  <span>Envío estimado</span>
-                  @if (shippingEstimate(); as shipping) {
-                    <span class="font-semibold text-gray-900">{{ shipping.freeShippingApplied ? 'Gratis' : (shipping.shippingCost | currency:'MXN':'symbol-narrow':'1.2-2') }}</span>
-                  } @else {
-                    <span class="font-semibold text-amber-700">Por calcular</span>
-                  }
-                </div>
-                <div class="flex justify-between gap-3 text-base font-bold text-gray-900 pt-3 border-t border-gray-100">
-                  <span>Total estimado</span>
-                  @if (estimatedTotal() !== null) {
-                    <span class="text-brand-pink text-lg">{{ estimatedTotal() | currency:'MXN':'symbol-narrow':'1.2-2' }}</span>
-                  } @else {
-                    <span class="text-amber-700 text-sm">Por calcular</span>
-                  }
-                </div>
-                <p class="text-[11px] text-gray-500 leading-relaxed">Estimación informativa: GuayaFlow revalida precios, unidades, envío y total final al registrar el pedido.</p>
+                <div class="flex justify-between text-gray-500"><span>Envío</span><span class="text-gray-700">Se valida</span></div>
+                <div class="flex justify-between text-base font-bold text-gray-900 pt-3 border-t border-gray-100"><span>Total preliminar</span><span class="text-brand-pink text-lg">{{ '$' + store.cartTotalPrice() }} MXN</span></div>
               </div>
               @if (validationError()) {<div class="bg-rose-50 text-rose-700 text-xs p-3 rounded-xl mb-4 font-semibold flex gap-2 border border-rose-100"><mat-icon class="text-sm">error_outline</mat-icon>{{ validationError() }}</div>}
-              <button (click)="submitPayment()" [disabled]="isProcessing() || orderNeedsReview() || !shippingEstimate() || ecommerceStatus.status() !== 'active'" [ngClass]="payMethod() === 'WhatsApp' ? 'bg-[#25D366] hover:bg-[#128C7E]' : 'bg-brand-pink hover:bg-brand-dark'" class="w-full text-white font-bold rounded-xl h-14 transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50">
+              <button (click)="submitPayment()" [disabled]="isProcessing()" [ngClass]="payMethod() === 'WhatsApp' ? 'bg-[#25D366] hover:bg-[#128C7E]' : 'bg-brand-pink hover:bg-brand-dark'" class="w-full text-white font-bold rounded-xl h-14 transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50">
                 <mat-icon>{{ payMethod() === 'WhatsApp' ? 'chat' : 'security' }}</mat-icon>
                 {{ payMethod() === 'WhatsApp' ? 'Registrar y continuar por WhatsApp' : 'Continuar a Mercado Pago' }}
               </button>
-              <div class="flex items-center justify-center gap-1.5 mt-4 text-[10px] text-gray-400"><mat-icon class="text-sm h-4 w-4">shield</mat-icon> El backend valida variante, stock y precio antes de continuar</div>
+              <div class="flex items-center justify-center gap-1.5 mt-4 text-[10px] text-gray-400"><mat-icon class="text-sm h-4 w-4">shield</mat-icon> Se valida de nueva cuenta antes de continuar</div>
             </div>
           </div>
         }
@@ -180,7 +161,6 @@ export class Checkout implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly seo = inject(Seo);
   private readonly checkoutSession = inject(CheckoutSessionService);
-  readonly ecommerceStatus = inject(EcommerceStatusService);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
   private readonly platformId = inject(PLATFORM_ID);
@@ -194,17 +174,11 @@ export class Checkout implements OnInit {
   readonly city = signal('');
   readonly state = signal('');
   readonly postalCode = signal('');
-  readonly country = signal('México');
+  readonly country = signal('MX');
   readonly payMethod = signal<'MercadoPago' | 'WhatsApp'>('MercadoPago');
   readonly isProcessing = signal(false);
   readonly validationError = signal('');
-  readonly orderNeedsReview = signal(false);
   readonly fullName = computed(() => `${this.firstName().trim()} ${this.lastName().trim()}`.trim());
-  readonly shippingEstimate = computed(() => this.ecommerceStatus.estimateShipping(this.store.cartTotalItems(), this.store.cartTotalPrice()));
-  readonly estimatedTotal = computed(() => {
-    const shipping = this.shippingEstimate();
-    return shipping ? this.store.cartTotalPrice() + shipping.shippingCost : null;
-  });
 
   constructor() {
     this.seo.setMetaTags('Finalizar Compra', 'Completa tus datos de envío y continúa a Mercado Pago de forma segura.', ['checkout Creaciones Golondrina', 'Mercado Pago']);
@@ -215,8 +189,6 @@ export class Checkout implements OnInit {
     // snapshot that starts at/after entering checkout, rather than reusing a request
     // that may have begun on Cart/Detail immediately before navigation.
     void this.store.refreshCatalogAndCart(true, true, true);
-    // Puede haber cambiado la regla en ERP incluso si el guard reutilizó status.
-    void this.ecommerceStatus.ensureStatus(true);
   }
 
   onPostalCodeInput(value: string) {
@@ -254,17 +226,15 @@ export class Checkout implements OnInit {
     return `${environment.apiUrl.replace(/\/$/, '')}/${value}`;
   }
 
-  private buildWhatsappUrl(saleId: string, totals: AuthoritativeCheckoutTotals, items: CartItem[]): string {
-    const money = (value: number) => new Intl.NumberFormat('es-MX', {style: 'currency', currency: 'MXN'}).format(value);
+  private buildWhatsappUrl(saleId: string, total: number, items: CartItem[]): string {
     const itemLines = items.map((item) => `- ${item.product.name} | Talla ${item.selectedSize} | Color ${item.selectedColor} | Cant. ${item.quantity}`).join('\n');
     const text = encodeURIComponent(
-      `Hola Creaciones Golondrina, mi pedido #${saleId} ya fue registrado en GuayaFlow.\n\n` +
+      `Hola Creaciones Golondrina, mi pedido #${saleId} ya fue registrado.\n\n` +
       `Cliente: ${this.fullName()}\nTeléfono: ${this.phone().trim()}\n` +
       `${this.email().trim() ? `Correo: ${this.email().trim()}\n` : ''}` +
       `Dirección: ${this.street().trim()}, ${this.city().trim()}, ${this.state().trim()}, CP ${this.postalCode()}\n` +
       `${this.reference().trim() ? `Referencia: ${this.reference().trim()}\n` : ''}\n` +
-      `Prendas:\n${itemLines}\n\nSubtotal confirmado: ${money(totals.subtotal)}\n` +
-      `Envío confirmado: ${money(totals.shippingCost)}\nTotal registrado: ${money(totals.total)}\n\nDeseo coordinar el pago y envío.`
+      `Prendas:\n${itemLines}\n\nTotal registrado: $${total} MXN\n\nDeseo coordinar el pago y envío.`
     );
     return `https://wa.me/${environment.whatsappNumber}?text=${text}`;
   }
@@ -332,20 +302,13 @@ export class Checkout implements OnInit {
         return;
       }
 
-      // El backend confirma estado/configuración antes de cada intento de pedido.
-      const state = await this.ecommerceStatus.ensureStatus(true);
-      const shipping = this.shippingEstimate();
-      if (state !== 'active' || !shipping) {
-        throw new Error('No pudimos validar la regla de envío actual. Inténtalo nuevamente antes de registrar el pedido.');
-      }
-      const subtotalEstimate = this.store.cartTotalPrice();
       const payload = {
         type: 'Venta Directa',
         paymentMethod: this.payMethod() === 'WhatsApp' ? 'whatsapp' : 'mercadopago',
         // Estos totales son informativos. Laravel los recalcula y es la única autoridad.
-        subtotal: subtotalEstimate,
-        shipping_cost: shipping.shippingCost,
-        total_amount: subtotalEstimate + shipping.shippingCost,
+        subtotal: this.store.cartTotalPrice(),
+        shipping_cost: 0,
+        total_amount: this.store.cartTotalPrice(),
         items: this.store.cart().map((item) => ({
           id: item.variantId,
           modelName: `${item.product.name} color ${item.selectedColor} talla ${item.selectedSize}`,
@@ -373,33 +336,24 @@ export class Checkout implements OnInit {
       const isWhatsapp = this.payMethod() === 'WhatsApp';
       const endpoint = isWhatsapp ? `${environment.apiUrl}/payment/create-whatsapp-order` : `${environment.apiUrl}/payment/create-preference`;
       const response = await firstValueFrom(this.http.post<ApiCheckoutResponse>(endpoint, payload));
-      if (response?.success === false || !response.sale_id) throw new Error(response?.message || 'GuayaFlow no pudo registrar el pedido.');
-      const authoritative = extractAuthoritativeTotals(response);
-      if (!authoritative) {
-        this.orderNeedsReview.set(true);
-        throw new Error(`GuayaFlow registró el pedido #${response.sale_id}, pero no devolvió los totales completos. No vuelvas a crearlo: consulta el pedido en el ERP.`);
-      }
-      const {subtotal, shippingCost, total} = authoritative;
+      if (response?.success === false || !response.sale_id) throw new Error(response?.message || 'no pudo registrar el pedido.');
+      const subtotal = Number(response.totals?.subtotal ?? response.subtotal ?? this.store.cartTotalPrice());
+      const shippingCost = Number(response.totals?.shipping_cost ?? response.shipping_cost ?? 0);
+      const total = Number(response.totals?.total ?? response.total ?? response.total_amount ?? subtotal + shippingCost);
 
       if (isWhatsapp) {
         const snapshot = [...this.store.cart()];
         const saleId = String(response.sale_id);
-        const whatsappUrl = this.buildWhatsappUrl(saleId, authoritative, snapshot);
+        const whatsappUrl = this.buildWhatsappUrl(saleId, total, snapshot);
         this.store.clearCart();
-        this.toast.success(`Pedido #${saleId} registrado en GuayaFlow.`);
+        this.toast.success(`Pedido #${saleId} registrado correctamente.`);
         if (isPlatformBrowser(this.platformId)) window.location.assign(whatsappUrl);
         return;
       }
 
-      if (!response.init_point) {
-        this.orderNeedsReview.set(true);
-        throw new Error('GuayaFlow creó el pedido, pero no devolvió el enlace de pago. No vuelvas a crearlo: consulta el pedido en el ERP.');
-      }
+      if (!response.init_point) throw new Error('error al pasar a Mercado Pago.');
       const orderStatusUrl = this.normalizeOrderStatusUrl(response.order_status_url || response.orderStatusUrl || response.signed_status_url || '');
-      if (!orderStatusUrl) {
-        this.orderNeedsReview.set(true);
-        throw new Error('GuayaFlow creó el pedido, pero no devolvió la URL firmada. No vuelvas a crearlo: consulta el pedido en el ERP.');
-      }
+      if (!orderStatusUrl) throw new Error('No se puede consultar el estado del pedido.');
       this.checkoutSession.save({
         saleId: String(response.sale_id),
         preferenceId: response.preference_id || '',
