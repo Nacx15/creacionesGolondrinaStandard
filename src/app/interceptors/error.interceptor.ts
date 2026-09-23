@@ -40,7 +40,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
         const now = Date.now();
         if (now - lastConnectivityToastAt >= CONNECTIVITY_TOAST_COOLDOWN_MS) {
           lastConnectivityToastAt = now;
-          toast.error('No pudimos conectar con GuayaFlow. Verifica tu conexión e inténtalo nuevamente.');
+          toast.error('No pudimos conectar con el servidor. Verifica tu conexión e inténtalo nuevamente.');
         }
       }
 

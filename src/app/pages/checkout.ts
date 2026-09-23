@@ -58,7 +58,7 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
             <mat-icon class="absolute inset-0 m-auto text-white text-3xl h-8 w-8">lock</mat-icon>
           </div>
           <h2 class="font-serif-brand text-2xl md:text-3xl font-bold text-white mb-2">Preparando tu pago seguro</h2>
-          <p class="text-gray-300 text-sm max-w-md">Estamos revalidando existencias y solicitando a GuayaFlow los totales autoritativos antes de enviarte a Mercado Pago.</p>
+          <p class="text-gray-300 text-sm max-w-md">Estamos revalidando existencias antes de enviarte a Mercado Pago.</p>
         </div>
       }
 
@@ -66,7 +66,7 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
         <div class="text-center max-w-xl mx-auto mb-10">
           <h1 class="font-serif-brand text-4xl font-bold text-gray-900">Finalizar Compra</h1>
           <div class="w-12 h-1 bg-brand-pink mx-auto mt-2 rounded-full mb-4"></div>
-          <p class="text-gray-500 text-sm">Tu cobro se completa en Mercado Pago. Creaciones Golondrina no solicita datos de tarjeta en este sitio.</p>
+          <!-- <p class="text-gray-500 text-sm">Tu cobro se completa en Mercado Pago. Creaciones Golondrina no solicita datos de tarjeta en este sitio.</p> -->
         </div>
 
         @if (store.cart().length === 0) {
@@ -110,12 +110,12 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
                 @if (payMethod() === 'MercadoPago') {
                   <div class="bg-brand-cream border border-brand-pink/10 p-6 rounded-2xl flex gap-4 items-start">
                     <mat-icon class="text-brand-pink">verified_user</mat-icon>
-                    <div><h4 class="font-bold text-gray-900">Mercado Pago</h4><p class="text-sm text-gray-600 mt-1 leading-relaxed">GuayaFlow reservará inventario y recalculará precio, envío y total. Después serás redirigido en esta misma pestaña a Mercado Pago.</p></div>
+                    <div><h4 class="font-bold text-gray-900">Mercado Pago</h4><p class="text-sm text-gray-600 mt-1 leading-relaxed">Te redirigiremos a Mercado Pago para finalizar tu compra.</p></div>
                   </div>
                 } @else {
                   <div class="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl flex gap-4 items-start">
                     <mat-icon class="text-emerald-600">chat</mat-icon>
-                    <div><h4 class="font-bold text-emerald-900">Pedido por WhatsApp</h4><p class="text-sm text-emerald-800 mt-1 leading-relaxed">Primero registraremos el pedido en GuayaFlow con la variante, precio y stock vigentes. Solo si el backend lo acepta abriremos el chat para coordinar el pago y envío.</p></div>
+                    <div><h4 class="font-bold text-emerald-900">Pedido por WhatsApp</h4><p class="text-sm text-emerald-800 mt-1 leading-relaxed">Validaremos existencias antes de realizar tu pedido.</p></div>
                   </div>
                 }
               </div>
@@ -133,7 +133,7 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
               </div>
               <div class="space-y-3 pt-4 border-t border-gray-100 mb-6 text-xs md:text-sm">
                 <div class="flex justify-between text-gray-500"><span>Productos ({{ store.cartTotalItems() }} piezas)</span><span class="font-semibold text-gray-900">{{ '$' + store.cartTotalPrice() }} MXN</span></div>
-                <div class="flex justify-between text-gray-500"><span>Envío</span><span class="text-gray-700">Se valida en GuayaFlow</span></div>
+                <div class="flex justify-between text-gray-500"><span>Envío</span><span class="text-gray-700">Se valida</span></div>
                 <div class="flex justify-between text-base font-bold text-gray-900 pt-3 border-t border-gray-100"><span>Total preliminar</span><span class="text-brand-pink text-lg">{{ '$' + store.cartTotalPrice() }} MXN</span></div>
               </div>
               @if (validationError()) {<div class="bg-rose-50 text-rose-700 text-xs p-3 rounded-xl mb-4 font-semibold flex gap-2 border border-rose-100"><mat-icon class="text-sm">error_outline</mat-icon>{{ validationError() }}</div>}
@@ -141,7 +141,7 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
                 <mat-icon>{{ payMethod() === 'WhatsApp' ? 'chat' : 'security' }}</mat-icon>
                 {{ payMethod() === 'WhatsApp' ? 'Registrar y continuar por WhatsApp' : 'Continuar a Mercado Pago' }}
               </button>
-              <div class="flex items-center justify-center gap-1.5 mt-4 text-[10px] text-gray-400"><mat-icon class="text-sm h-4 w-4">shield</mat-icon> El backend valida variante, stock y precio antes de continuar</div>
+              <div class="flex items-center justify-center gap-1.5 mt-4 text-[10px] text-gray-400"><mat-icon class="text-sm h-4 w-4">shield</mat-icon> Se valida de nueva cuenta antes de continuar</div>
             </div>
           </div>
         }
@@ -174,7 +174,7 @@ export class Checkout implements OnInit {
   readonly city = signal('');
   readonly state = signal('');
   readonly postalCode = signal('');
-  readonly country = signal('México');
+  readonly country = signal('MX');
   readonly payMethod = signal<'MercadoPago' | 'WhatsApp'>('MercadoPago');
   readonly isProcessing = signal(false);
   readonly validationError = signal('');
@@ -229,7 +229,7 @@ export class Checkout implements OnInit {
   private buildWhatsappUrl(saleId: string, total: number, items: CartItem[]): string {
     const itemLines = items.map((item) => `- ${item.product.name} | Talla ${item.selectedSize} | Color ${item.selectedColor} | Cant. ${item.quantity}`).join('\n');
     const text = encodeURIComponent(
-      `Hola Creaciones Golondrina, mi pedido #${saleId} ya fue registrado en GuayaFlow.\n\n` +
+      `Hola Creaciones Golondrina, mi pedido #${saleId} ya fue registrado.\n\n` +
       `Cliente: ${this.fullName()}\nTeléfono: ${this.phone().trim()}\n` +
       `${this.email().trim() ? `Correo: ${this.email().trim()}\n` : ''}` +
       `Dirección: ${this.street().trim()}, ${this.city().trim()}, ${this.state().trim()}, CP ${this.postalCode()}\n` +
@@ -336,7 +336,7 @@ export class Checkout implements OnInit {
       const isWhatsapp = this.payMethod() === 'WhatsApp';
       const endpoint = isWhatsapp ? `${environment.apiUrl}/payment/create-whatsapp-order` : `${environment.apiUrl}/payment/create-preference`;
       const response = await firstValueFrom(this.http.post<ApiCheckoutResponse>(endpoint, payload));
-      if (response?.success === false || !response.sale_id) throw new Error(response?.message || 'GuayaFlow no pudo registrar el pedido.');
+      if (response?.success === false || !response.sale_id) throw new Error(response?.message || 'no pudo registrar el pedido.');
       const subtotal = Number(response.totals?.subtotal ?? response.subtotal ?? this.store.cartTotalPrice());
       const shippingCost = Number(response.totals?.shipping_cost ?? response.shipping_cost ?? 0);
       const total = Number(response.totals?.total ?? response.total ?? response.total_amount ?? subtotal + shippingCost);
@@ -346,14 +346,14 @@ export class Checkout implements OnInit {
         const saleId = String(response.sale_id);
         const whatsappUrl = this.buildWhatsappUrl(saleId, total, snapshot);
         this.store.clearCart();
-        this.toast.success(`Pedido #${saleId} registrado en GuayaFlow.`);
+        this.toast.success(`Pedido #${saleId} registrado correctamente.`);
         if (isPlatformBrowser(this.platformId)) window.location.assign(whatsappUrl);
         return;
       }
 
-      if (!response.init_point) throw new Error('GuayaFlow no devolvió el init_point de Mercado Pago.');
+      if (!response.init_point) throw new Error('error al pasar a Mercado Pago.');
       const orderStatusUrl = this.normalizeOrderStatusUrl(response.order_status_url || response.orderStatusUrl || response.signed_status_url || '');
-      if (!orderStatusUrl) throw new Error('GuayaFlow no devolvió la URL firmada para consultar el estado del pedido.');
+      if (!orderStatusUrl) throw new Error('No se puede consultar el estado del pedido.');
       this.checkoutSession.save({
         saleId: String(response.sale_id),
         preferenceId: response.preference_id || '',

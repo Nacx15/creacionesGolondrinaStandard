@@ -25,9 +25,9 @@ import {MatIconModule} from '@angular/material/icon';
         <!-- Desktop Navigation links -->
         <nav class="hidden lg:flex items-center gap-8 text-sm font-semibold text-gray-600">
           <a routerLink="/" routerLinkActive="text-brand-pink" [routerLinkActiveOptions]="{exact: true}" class="hover:text-brand-pink transition-colors">Inicio</a>
+          <a routerLink="/catalogo" routerLinkActive="text-brand-pink" class="hover:text-brand-pink transition-colors">Catálogo</a>
           <a routerLink="/servicios" routerLinkActive="text-brand-pink" class="hover:text-brand-pink transition-colors">Servicios</a>
           <a routerLink="/nosotros" routerLinkActive="text-brand-pink" class="hover:text-brand-pink transition-colors">Nosotros</a>
-          <a routerLink="/catalogo" routerLinkActive="text-brand-pink" class="hover:text-brand-pink transition-colors">Catálogo</a>
         </nav>
 
         <!-- Right Action icons -->

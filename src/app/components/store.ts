@@ -61,6 +61,7 @@ export interface ApiProducto {
   id: number;
   nombre: string;
   ref_code?: string;
+  descripcion?: string;
   precio_publico?: number;
   precio_ecommerce?: number;
   ecommerce_price?: number;
@@ -358,7 +359,7 @@ export class Store {
       id: String(api.id),
       name: api.nombre,
       ref_code: api.ref_code,
-      description: `Prenda de confección artesanal modelo ${api.nombre}${api.ref_code ? ` (Ref: ${api.ref_code})` : ''}.`,
+      description: api.descripcion ? api.descripcion : '',
       detailed_desc: `Modelo ${api.nombre} de Creaciones Golondrina, confeccionado en Tekit, Yucatán.`,
       price,
       precio_ecommerce: price,

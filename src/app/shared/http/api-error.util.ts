@@ -13,7 +13,7 @@ export function getApiErrorMessage(error: unknown, fallback = 'Ocurrió un error
   }
 
   switch (error.status) {
-    case 0: return 'No fue posible conectar con GuayaFlow. Verifica tu conexión e inténtalo de nuevo.';
+    case 0: return 'No fue posible conectar con el servidor. Verifica tu conexión e inténtalo de nuevo.';
     case 403: return 'La tienda no está disponible en este momento.';
     case 409:
       if (body?.code === 'insufficient_stock') return 'La disponibilidad cambió. Actualiza el carrito antes de continuar.';
@@ -22,7 +22,7 @@ export function getApiErrorMessage(error: unknown, fallback = 'Ocurrió un error
       return 'El carrito cambió por disponibilidad o precio. Revisa los ajustes antes de continuar.';
     case 422: return 'Revisa los datos capturados e intenta nuevamente.';
     case 503: return 'La tienda está temporalmente en mantenimiento o su configuración no está disponible.';
-    case 500: return 'GuayaFlow no pudo completar la operación. Inténtalo nuevamente.';
+    case 500: return 'Lo siento, no se pudo completar la operación. Inténtalo nuevamente.';
     default: return fallback;
   }
 }
