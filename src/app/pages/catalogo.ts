@@ -4,12 +4,13 @@ import {Router, RouterLink} from '@angular/router';
 import {Store, Product} from '../components/store';
 import {Seo} from '../components/seo';
 import {MatIconModule} from '@angular/material/icon';
+import {ShippingPromoComponent} from '../components/shipping-promo.component';
 import {environment} from '../../environments/environment';
 
 @Component({
   selector: 'app-catalogo',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatIconModule],
+  imports: [CommonModule, RouterLink, MatIconModule, ShippingPromoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="py-12 bg-brand-cream animate-fade-in relative min-h-screen">
@@ -23,6 +24,8 @@ import {environment} from '../../environments/environment';
             Explora nuestra selecta colección de ropa tradicional confeccionada con lino y algodón de primer nivel.
           </p>
         </div>
+
+        <div class="max-w-4xl mx-auto mb-8"><app-shipping-promo /></div>
 
         <!-- Mobile & Tablet Filter Action Bar (Visible only on < lg screens) -->
         <div class="lg:hidden mb-6 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">

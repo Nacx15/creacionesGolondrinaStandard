@@ -1,14 +1,16 @@
-import {ChangeDetectionStrategy, Component, inject, OnInit, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, computed, inject, OnInit, signal} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {RouterLink} from '@angular/router';
 import {Store, CartItem} from '../components/store';
 import {Seo} from '../components/seo';
 import {MatIconModule} from '@angular/material/icon';
+import {ShippingPromoComponent} from '../components/shipping-promo.component';
+import {EcommerceStatusService} from '../services/ecommerce-status.service';
 
 @Component({
   selector: 'app-carrito',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatIconModule],
+  imports: [CommonModule, RouterLink, MatIconModule, ShippingPromoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="py-12 bg-brand-cream animate-fade-in">
@@ -26,6 +28,11 @@ import {MatIconModule} from '@angular/material/icon';
               Actualizando existencias...
             </div>
           }
+        </div>
+
+        <!-- Mismo componente reactivo que Catálogo; no realiza peticiones adicionales. -->
+        <div class="max-w-6xl mx-auto mb-8">
+          <app-shipping-promo />
         </div>
 
         @if (store.cart().length === 0) {
@@ -128,22 +135,33 @@ import {MatIconModule} from '@angular/material/icon';
               </h3>
 
               <div class="space-y-4 mb-6">
-                <div class="flex justify-between text-sm text-gray-500">
-                  <span>Productos ({{ store.cartTotalItems() }} piezas)</span>
-                  <span class="font-medium text-gray-900">{{ '$' + store.cartTotalPrice() }} MXN</span>
+                <div class="flex justify-between gap-3 text-sm text-gray-500">
+                  <span>Productos ({{ store.cartTotalItems() }} {{ store.cartTotalItems() === 1 ? 'pieza' : 'piezas' }})</span>
+                  <span class="font-medium text-gray-900">{{ store.cartTotalPrice() | currency:'MXN':'symbol-narrow':'1.2-2' }} MXN</span>
                 </div>
-                <div class="flex justify-between text-sm text-gray-500">
-                  <span>Envío (desde Tekit)</span>
-                  <span class="font-semibold text-emerald-600">¡Gratis!</span>
+                <div class="flex justify-between gap-3 text-sm text-gray-500">
+                  <span>Envío estimado (desde Tekit)</span>
+                  @if (shippingEstimate(); as estimate) {
+                    <span [class.text-emerald-600]="estimate.freeShippingApplied" class="font-semibold text-right">
+                      {{ estimate.freeShippingApplied ? 'Gratis' : (estimate.shippingCost | currency:'MXN':'symbol-narrow':'1.2-2') + ' MXN' }}
+                    </span>
+                  } @else {
+                    <span class="font-medium text-gray-600">Por calcular</span>
+                  }
                 </div>
-                <div class="flex justify-between text-sm text-gray-500 pb-4 border-b border-gray-100">
-                  <span>Impuestos (IVA incl.)</span>
-                  <span class="font-medium text-gray-900">$0.00</span>
+                <div class="flex justify-between gap-3 text-base font-bold text-gray-900 pt-4 border-t border-gray-100">
+                  <span>Total estimado</span>
+                  <span class="text-brand-pink text-lg text-right">
+                    @if (estimatedTotal() !== null) {
+                      {{ estimatedTotal() | currency:'MXN':'symbol-narrow':'1.2-2' }} MXN
+                    } @else {
+                      Por calcular
+                    }
+                  </span>
                 </div>
-                <div class="flex justify-between text-base font-bold text-gray-900">
-                  <span>Total Neto</span>
-                  <span class="text-brand-pink text-lg">{{ '$' + store.cartTotalPrice() }} MXN</span>
-                </div>
+                <p class="text-[11px] leading-relaxed text-gray-500">
+                  El costo de envío y el total son estimados. Se confirma los importes finales al registrar tu pedido.
+                </p>
               </div>
 
               <!-- Checkout Actions -->
@@ -178,6 +196,14 @@ export class Carrito implements OnInit {
   readonly store = inject(Store);
   readonly refreshingStock = signal(false);
   private readonly seo = inject(Seo);
+  private readonly ecommerceStatus = inject(EcommerceStatusService);
+  readonly shippingEstimate = computed(() =>
+    this.ecommerceStatus.estimateShipping(this.store.cartTotalItems(), this.store.cartTotalPrice())
+  );
+  readonly estimatedTotal = computed(() => {
+    const estimate = this.shippingEstimate();
+    return estimate === null ? null : this.store.cartTotalPrice() + estimate.shippingCost;
+  });
 
   async ngOnInit() {
     this.seo.setMetaTags(

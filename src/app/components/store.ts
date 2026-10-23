@@ -344,13 +344,45 @@ export class Store {
     }
   }
 
+  /** Orden natural de tallas, independiente del orden recibido de la API. */
+  private compareSizeLabels(a: string, b: string): number {
+    const normalize = (value: string) => String(value).trim().toUpperCase().replace(/\s+/g, '');
+    const left = normalize(a);
+    const right = normalize(b);
+    const numericPattern = /^\d+(?:[.,]\d+)?$/;
+    const leftNumeric = numericPattern.test(left);
+    const rightNumeric = numericPattern.test(right);
+
+    if (leftNumeric && rightNumeric) {
+      return Number(left.replace(',', '.')) - Number(right.replace(',', '.'));
+    }
+    // Consistent placement if the API mixes numeric and alphabetic size schemes.
+    if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+
+    const order = new Map<string, number>([
+      ['XXXS', 0], ['XXS', 1], ['XS', 2], ['ECH', 2],
+      ['S', 3], ['CH', 3], ['M', 4], ['L', 5], ['G', 5],
+      ['XL', 6], ['XG', 6], ['XXL', 7], ['2XL', 7], ['EG', 7],
+      ['XXXL', 8], ['3XL', 8], ['EEG', 8], ['4XL', 9],
+    ]);
+    const leftRank = order.get(left);
+    const rightRank = order.get(right);
+    if (leftRank !== undefined && rightRank !== undefined) {
+      return leftRank - rightRank || left.localeCompare(right, 'es', {sensitivity: 'base'});
+    }
+    if (leftRank !== undefined) return -1;
+    if (rightRank !== undefined) return 1;
+    return left.localeCompare(right, 'es', {numeric: true, sensitivity: 'base'});
+  }
+
   private mapProduct(api: ApiProducto): Product {
     const variants = (api.variantes ?? []).map((raw) => this.mapVariant(raw, api));
     const ecommercePrices = variants.map((v) => v.precio_ecommerce).filter((p) => p > 0);
     const productPrice = asNumber(api.precio_ecommerce ?? api.ecommerce_price);
     const price = ecommercePrices.length ? Math.min(...ecommercePrices) : productPrice;
     const colors = [...new Set(variants.map((v) => v.color).filter(Boolean))];
-    const sizes = [...new Set(variants.map((v) => v.talla).filter(Boolean))];
+    const sizes = [...new Set(variants.map((v) => v.talla).filter(Boolean))]
+      .sort((a, b) => this.compareSizeLabels(a, b));
     const colorList = colors.map((name) => ({name, hex: variants.find((v) => v.color === name)?.hex || '#CCCCCC'}));
     const dept = String(api.departamento ?? '').toLowerCase();
     const category: Product['category'] = dept.includes('dam') || dept.includes('muj') ? 'Damas' : dept.includes('niñ') || dept.includes('inf') ? 'Niños' : 'Caballeros';
@@ -429,7 +461,7 @@ export class Store {
     this.productsForSelectedCategory().forEach((product) => product.variantes.forEach((variant) => {
       if (variant.availableBodega > 0 && variant.talla) set.add(variant.talla);
     }));
-    return ['Todos', ...Array.from(set).sort((a, b) => (Number(a) || 999) - (Number(b) || 999) || a.localeCompare(b, 'es', {sensitivity: 'base'}))];
+    return ['Todos', ...Array.from(set).sort((a, b) => this.compareSizeLabels(a, b))];
   });
 
   readonly availableColors = computed(() => {

@@ -342,7 +342,10 @@ export class Inicio implements OnInit, OnDestroy {
       description: string;
     }>();
 
-    for (const product of this.store.products()) {
+    // La primera imagen corresponde al modelo registrado primero (ID menor),
+    // independientemente del orden de respuesta de la API.
+    const productsByRegistration = [...this.store.products()].sort((a, b) => Number(a.id) - Number(b.id));
+    for (const product of productsByRegistration) {
       const departmentName = product.departmentName
         || (product.department_id ? departmentsById.get(Number(product.department_id)) : '')
         || product.category;
@@ -420,22 +423,22 @@ export class Inicio implements OnInit, OnDestroy {
     const key = this.normalizeCategory(name);
     const presentations: Record<string, {image: string; alt: string; description: string}> = {
       caballeros: {
-        image: environment.brandImages.category.caballeros,
+        image: productImage,
         alt: 'Guayaberas para Caballeros',
         description: 'Guayaberas presidenciales, manga corta, de lino premium e hilo fino.',
       },
       damas: {
-        image: environment.brandImages.category.damas,
+        image: productImage,
         alt: 'Ropa típica para Damas',
         description: 'Vestidos tradicionales "Huipil", blusas bordadas campesinas y de lino.',
       },
       ninos: {
-        image: environment.brandImages.category.ninos,
+        image: productImage,
         alt: 'Guayaberas y ropa típica para niños',
         description: 'Guayaberas infantiles suaves de algodón.',
       },
       ninas: {
-        image: environment.brandImages.category.ninas,
+        image: productImage,
         alt: 'Vestidos y ropa típica para niñas',
         description: 'Hermosos vestidos bordados.',
       },

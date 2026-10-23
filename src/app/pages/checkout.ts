@@ -10,6 +10,9 @@ import {environment} from '../../environments/environment';
 import {CheckoutSessionService} from '../services/checkout-session.service';
 import {ToastService} from '../services/toast.service';
 import {getApiErrorMessage} from '../shared/http/api-error.util';
+import {ShippingPromoComponent} from '../components/shipping-promo.component';
+import {EcommerceStatusService} from '../services/ecommerce-status.service';
+import {extractAuthoritativeTotals} from '../services/checkout-totals.util';
 
 interface ApiCheckoutResponse {
   success?: boolean;
@@ -46,7 +49,7 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
 @Component({
   selector: 'app-checkout',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatIconModule],
+  imports: [CommonModule, RouterLink, MatIconModule, ShippingPromoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="py-12 bg-brand-cream animate-fade-in relative">
@@ -93,7 +96,7 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
                   <div><label class="field-label" for="postal">Código postal *</label><input id="postal" maxlength="5" class="field font-mono" [value]="postalCode()" (input)="onPostalCodeInput($any($event.target).value)" autocomplete="postal-code"></div>
                   <div><label class="field-label" for="city">Ciudad / Municipio *</label><input id="city" class="field" [value]="city()" (input)="city.set($any($event.target).value)" autocomplete="address-level2"></div>
                   <div><label class="field-label" for="state">Estado *</label><input id="state" class="field" [value]="state()" (input)="state.set($any($event.target).value)" autocomplete="address-level1"></div>
-                  <div><label class="field-label" for="country">País *</label><input id="country" class="field" [value]="country()" (input)="country.set($any($event.target).value)" autocomplete="country-name"></div>
+                  <div><label class="field-label" for="country">País *</label><input disabled id="country" class="field" value="MX" (input)="country.set($any($event.target).value)" autocomplete="country-name"></div>
                 </div>
               </div>
 
@@ -133,9 +136,25 @@ const PC_MAP: Record<string, {city: string; state: string; country: string}> = {
               </div>
               <div class="space-y-3 pt-4 border-t border-gray-100 mb-6 text-xs md:text-sm">
                 <div class="flex justify-between text-gray-500"><span>Productos ({{ store.cartTotalItems() }} piezas)</span><span class="font-semibold text-gray-900">{{ '$' + store.cartTotalPrice() }} MXN</span></div>
-                <div class="flex justify-between text-gray-500"><span>Envío</span><span class="text-gray-700">Se valida</span></div>
-                <div class="flex justify-between text-base font-bold text-gray-900 pt-3 border-t border-gray-100"><span>Total preliminar</span><span class="text-brand-pink text-lg">{{ '$' + store.cartTotalPrice() }} MXN</span></div>
+                <div class="flex justify-between text-gray-500"><span>Envío estimado</span>
+                  <span class="text-gray-700">
+                    @if (shippingEstimate(); as estimate) {
+                      {{ estimate.freeShippingApplied ? 'Gratis' : (estimate.shippingCost | currency:'MXN':'symbol-narrow':'1.2-2') }}
+                    } @else {
+                      Por calcular
+                    }
+                  </span>
+                </div>
+                <div class="flex justify-between text-base font-bold text-gray-900 pt-3 border-t border-gray-100"><span>Total estimado</span><span class="text-brand-pink text-lg">
+                    @if (estimatedTotal() !== null) {
+                      {{ estimatedTotal() | currency:'MXN':'symbol-narrow':'1.2-2' }}
+                    } @else {
+                      Por calcular
+                    }
+                  </span></div>
+                <p class="text-[11px] text-gray-500">Importes estimados; GuayaFlow recalcula y confirma el total final del pedido.</p>
               </div>
+              <app-shipping-promo class="block mb-5" />
               @if (validationError()) {<div class="bg-rose-50 text-rose-700 text-xs p-3 rounded-xl mb-4 font-semibold flex gap-2 border border-rose-100"><mat-icon class="text-sm">error_outline</mat-icon>{{ validationError() }}</div>}
               <button (click)="submitPayment()" [disabled]="isProcessing()" [ngClass]="payMethod() === 'WhatsApp' ? 'bg-[#25D366] hover:bg-[#128C7E]' : 'bg-brand-pink hover:bg-brand-dark'" class="w-full text-white font-bold rounded-xl h-14 transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50">
                 <mat-icon>{{ payMethod() === 'WhatsApp' ? 'chat' : 'security' }}</mat-icon>
@@ -161,6 +180,7 @@ export class Checkout implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly seo = inject(Seo);
   private readonly checkoutSession = inject(CheckoutSessionService);
+  private readonly ecommerceStatus = inject(EcommerceStatusService);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
   private readonly platformId = inject(PLATFORM_ID);
@@ -179,6 +199,11 @@ export class Checkout implements OnInit {
   readonly isProcessing = signal(false);
   readonly validationError = signal('');
   readonly fullName = computed(() => `${this.firstName().trim()} ${this.lastName().trim()}`.trim());
+  readonly shippingEstimate = computed(() => this.ecommerceStatus.estimateShipping(this.store.cartTotalItems(), this.store.cartTotalPrice()));
+  readonly estimatedTotal = computed(() => {
+    const estimate = this.shippingEstimate();
+    return estimate === null ? null : this.store.cartTotalPrice() + estimate.shippingCost;
+  });
 
   constructor() {
     this.seo.setMetaTags('Finalizar Compra', 'Completa tus datos de envío y continúa a Mercado Pago de forma segura.', ['checkout Creaciones Golondrina', 'Mercado Pago']);
@@ -189,6 +214,8 @@ export class Checkout implements OnInit {
     // snapshot that starts at/after entering checkout, rather than reusing a request
     // that may have begun on Cart/Detail immediately before navigation.
     void this.store.refreshCatalogAndCart(true, true, true);
+    // Captura la configuración comercial de envío al entrar; nunca se consulta por cada cambio del carrito.
+    void this.ecommerceStatus.ensureStatus(true);
   }
 
   onPostalCodeInput(value: string) {
@@ -302,13 +329,24 @@ export class Checkout implements OnInit {
         return;
       }
 
+      // Si el status todavía no entregó una configuración válida, no asumimos envío gratis.
+      // Laravel podrá calcular el envío, pero evitamos presentar una estimación engañosa.
+      if (!this.ecommerceStatus.shipping()) {
+        await this.ecommerceStatus.ensureStatus(true);
+        if (!this.ecommerceStatus.shipping()) {
+          throw new Error('No se pudo obtener la configuración de envío. Vuelve a intentarlo.');
+        }
+      }
+      const shippingEstimate = this.shippingEstimate();
+      if (!shippingEstimate) throw new Error('Envío por calcular: no se dispone de la regla vigente.');
+
       const payload = {
         type: 'Venta Directa',
         paymentMethod: this.payMethod() === 'WhatsApp' ? 'whatsapp' : 'mercadopago',
-        // Estos totales son informativos. Laravel los recalcula y es la única autoridad.
+        // Valores exclusivamente estimativos. Laravel recalcula precio, envío y total.
         subtotal: this.store.cartTotalPrice(),
-        shipping_cost: 0,
-        total_amount: this.store.cartTotalPrice(),
+        shipping_cost: shippingEstimate.shippingCost,
+        total_amount: this.store.cartTotalPrice() + shippingEstimate.shippingCost,
         items: this.store.cart().map((item) => ({
           id: item.variantId,
           modelName: `${item.product.name} color ${item.selectedColor} talla ${item.selectedSize}`,
@@ -337,9 +375,9 @@ export class Checkout implements OnInit {
       const endpoint = isWhatsapp ? `${environment.apiUrl}/payment/create-whatsapp-order` : `${environment.apiUrl}/payment/create-preference`;
       const response = await firstValueFrom(this.http.post<ApiCheckoutResponse>(endpoint, payload));
       if (response?.success === false || !response.sale_id) throw new Error(response?.message || 'no pudo registrar el pedido.');
-      const subtotal = Number(response.totals?.subtotal ?? response.subtotal ?? this.store.cartTotalPrice());
-      const shippingCost = Number(response.totals?.shipping_cost ?? response.shipping_cost ?? 0);
-      const total = Number(response.totals?.total ?? response.total ?? response.total_amount ?? subtotal + shippingCost);
+      const backendTotals = extractAuthoritativeTotals(response);
+      if (!backendTotals) throw new Error('GuayaFlow no devolvió los totales autoritativos completos del pedido. Verifica el estado del pedido antes de reintentar.');
+      const {subtotal, shippingCost, total} = backendTotals;
 
       if (isWhatsapp) {
         const snapshot = [...this.store.cart()];
